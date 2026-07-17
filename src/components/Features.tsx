@@ -154,7 +154,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                   
                   {/* Fiyat Rozeti */}
                   <div className="absolute top-3.5 right-2 bg-black/60 backdrop-blur-md border border-primary/40 px-2.5 py-1 rounded-full text-[11px] font-bold text-primary tracking-wider uppercase z-20 shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-all">
-                    250 TL
+                    390 TL
                   </div>
 
                   <div>
@@ -187,7 +187,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                   
                   {/* Fiyat Rozeti */}
                   <div className="absolute top-3.5 right-2 bg-black/60 backdrop-blur-md border border-primary/40 px-2.5 py-1 rounded-full text-[11px] font-bold text-primary tracking-wider uppercase z-20 shadow-[0_4px_12px_rgba(0,0,0,0.5)] transition-all">
-                    200 TL
+                    290 TL
                   </div>
 
                   <div>
