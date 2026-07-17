@@ -93,6 +93,24 @@ export function Header() {
               {/* Spacer / Margin */}
               <div className="h-8" />
 
+              {/* PWA Install Action */}
+              <motion.div
+                initial={{ y: 15, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                transition={{ delay: 0.25, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                className="flex flex-col items-center gap-1.5 mb-6"
+              >
+                <button
+                  onClick={() => {
+                    setIsOpen(false);
+                    window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+                  }}
+                  className="px-6 py-2 border border-white/10 rounded-full hover:bg-[#FF7A00]/10 hover:border-[#FF7A00] hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer"
+                >
+                  Uygulamayı Yükle
+                </button>
+              </motion.div>
+
               {/* Partner Ol Action */}
               <motion.div
                 initial={{ y: 15, opacity: 0 }}

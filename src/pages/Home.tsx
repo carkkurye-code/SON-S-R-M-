@@ -6,6 +6,7 @@ import { BookingDialog, ActiveRequest } from '@/components/Features';
 import { BecomeAssistant } from '@/components/BecomeAssistant';
 import { FAQ } from '@/components/FAQ';
 import { Footer } from '@/components/Footer';
+import { PWAInstallPrompt } from '@/components/PWAInstallPrompt';
 
 export function Home() {
   const [isBookingOpen, setIsBookingOpen] = useState(false);
@@ -34,6 +35,9 @@ export function Home() {
       </main>
 
       <Footer />
+
+      {/* PWA Install Prompter & Assistant */}
+      <PWAInstallPrompt />
 
       {/* Dynamic Booking Flow Dialog */}
       <BookingDialog 
