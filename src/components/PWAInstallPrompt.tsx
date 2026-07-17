@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Download, X, Share, PlusSquare, ArrowDown } from 'lucide-react';
+import { useToast } from '@/hooks/use-toast';
 
 export function PWAInstallPrompt() {
+  const { toast } = useToast();
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isIOS, setIsIOS] = useState(false);
   const [isStandalone, setIsStandalone] = useState(false);
@@ -59,7 +61,10 @@ export function PWAInstallPrompt() {
     // Custom event listener so that the user can trigger install from other buttons in the UI
     const handleManualTrigger = () => {
       if (checkStandalone()) {
-        alert('UĞRA zaten telefonunuzda yüklü!');
+        toast({
+          title: "Uygulama Zaten Yüklü",
+          description: "UĞRA zaten telefonunuzda veya ana ekranınızda yüklü!",
+        });
         return;
       }
       setIsVisible(true);
@@ -85,7 +90,10 @@ export function PWAInstallPrompt() {
     if (!deferredPrompt) {
       // If we don't have the prompt event yet (e.g. on some browsers/Safari/Firefox),
       // we can inform the user or try our best
-      alert('Tarayıcınız otomatik yüklemeyi desteklemiyor. Lütfen tarayıcı menüsünden "Uygulamayı Yükle" veya "Ana Ekrana Ekle" seçeneğini kullanın.');
+      toast({
+        title: "Manuel Yükleme Gerekli",
+        description: 'Tarayıcınız otomatik yüklemeyi desteklemiyor. Lütfen tarayıcı menüsünden "Uygulamayı Yükle" veya "Ana Ekrana Ekle" seçeneğini kullanın.',
+      });
       return;
     }
 

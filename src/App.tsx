@@ -2,6 +2,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { Home } from '@/pages/Home';
+import { Toaster } from '@/components/ui/toaster';
 
 const queryClient = new QueryClient();
 
@@ -34,6 +35,7 @@ function App() {
       <WouterRouter base={import.meta.env.BASE_URL.replace(/\/$/, '')}>
         <Router />
       </WouterRouter>
+      <Toaster />
     </QueryClientProvider>
   );
 }
