@@ -43,106 +43,117 @@ export function Header() {
         </div>
       </header>
 
-      {/* Full Screen Menu */}
+      {/* Right to Left Drawer Menu */}
       <AnimatePresence>
         {isOpen && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.3 }}
-            className="fixed inset-0 z-[100] bg-background/95 backdrop-blur-2xl flex flex-col justify-center items-center"
-          >
-            <button
+          <>
+            {/* Clickable Backdrop below/beside the drawer */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
               onClick={() => setIsOpen(false)}
-              className="absolute top-6 right-6 md:top-8 md:right-12 text-muted-foreground hover:text-foreground transition-colors p-2"
+              className="fixed inset-0 z-[90] bg-black/40 backdrop-blur-sm"
+            />
+
+            <motion.div
+              initial={{ x: "100%" }}
+              animate={{ x: 0 }}
+              exit={{ x: "100%" }}
+              transition={{ type: "spring", damping: 28, stiffness: 220 }}
+              className="fixed inset-y-0 right-0 z-[100] bg-background/95 backdrop-blur-2xl flex flex-col justify-center items-center shadow-[-10px_0_40px_rgba(0,0,0,0.5)] border-l border-white/10 w-[85%] sm:w-[70%] md:w-[50%] lg:w-[35%] xl:w-[28%] max-w-[440px] h-full"
             >
-              <X className="w-8 h-8" />
-            </button>
-            
-            <div className="flex flex-col items-center justify-center text-center px-6 max-w-lg mx-auto">
-              {/* UĞRA. Logo */}
-              <motion.div
-                initial={{ y: 15, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="mb-4"
+              <button
+                onClick={() => setIsOpen(false)}
+                className="absolute top-6 right-6 md:top-8 md:right-8 text-muted-foreground hover:text-foreground transition-colors p-2"
               >
-                <h2 className="text-5xl md:text-6xl font-bold tracking-widest text-foreground select-none">
-                  UĞRA<span className="text-[#FF7A00]">.</span>
-                </h2>
-              </motion.div>
-
-              {/* Centered thin short orange divider line */}
-              <motion.div
-                initial={{ scaleX: 0, opacity: 0 }}
-                animate={{ scaleX: 1, opacity: 1 }}
-                transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="w-12 h-[2px] bg-[#FF7A00] mb-5 rounded-full"
-              />
-
-              {/* Subtitle */}
-              <motion.p
-                initial={{ y: 15, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.2, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="text-base md:text-lg text-muted-foreground font-medium leading-relaxed max-w-xs md:max-w-md select-none"
-              >
-                Zamanın sana kalsın.
-              </motion.p>
-
-              {/* Spacer / Margin */}
-              <div className="h-8" />
-
-              {/* PWA Install Action */}
-              <motion.div
-                initial={{ y: 15, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.25, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="flex flex-col items-center gap-1.5 mb-6"
-              >
-                <button
-                  onClick={() => {
-                    setIsOpen(false);
-                    window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
-                  }}
-                  className="px-6 py-2 border border-white/10 rounded-full hover:bg-[#FF7A00]/10 hover:border-[#FF7A00] hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer"
+                <X className="w-8 h-8" />
+              </button>
+              
+              <div className="flex flex-col items-center justify-center text-center px-6 max-w-md mx-auto w-full">
+                {/* UĞRA. Logo */}
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.1, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="mb-4"
                 >
-                  Uygulamayı Yükle
-                </button>
-              </motion.div>
+                  <h2 className="text-5xl md:text-6xl font-bold tracking-widest text-foreground select-none">
+                    UĞRA<span className="text-[#FF7A00]">.</span>
+                  </h2>
+                </motion.div>
 
-              {/* Partner Ol Action */}
-              <motion.div
-                initial={{ y: 15, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.3, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="flex flex-col items-center mb-5"
-              >
-                <button
-                  onClick={() => setShowPartnerInfo(true)}
-                  className="text-foreground hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-colors uppercase cursor-pointer"
-                >
-                  Partner Ol
-                </button>
-              </motion.div>
+                {/* Centered thin short orange divider line */}
+                <motion.div
+                  initial={{ scaleX: 0, opacity: 0 }}
+                  animate={{ scaleX: 1, opacity: 1 }}
+                  transition={{ delay: 0.15, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="w-12 h-[2px] bg-[#FF7A00] mb-5 rounded-full"
+                />
 
-              {/* UĞRA MARKET Action */}
-              <motion.div
-                initial={{ y: 15, opacity: 0 }}
-                animate={{ y: 0, opacity: 1 }}
-                transition={{ delay: 0.35, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                className="flex flex-col items-center mb-5"
-              >
-                <button
-                  onClick={() => setShowMarketInfo(true)}
-                  className="text-foreground hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-colors uppercase cursor-pointer"
+                {/* Subtitle */}
+                <motion.p
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.2, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="text-base md:text-lg text-muted-foreground font-medium leading-relaxed max-w-xs select-none"
                 >
-                  UĞRA MARKET
-                </button>
-              </motion.div>
-            </div>
-          </motion.div>
+                  Zamanın sana kalsın.
+                </motion.p>
+
+                {/* Spacer / Margin */}
+                <div className="h-8" />
+
+                {/* PWA Install Action */}
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.25, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="flex flex-col items-center gap-1.5 mb-6"
+                >
+                  <button
+                    onClick={() => {
+                      setIsOpen(false);
+                      window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
+                    }}
+                    className="px-6 py-2 border border-white/10 rounded-full hover:bg-[#FF7A00]/10 hover:border-[#FF7A00] hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer"
+                  >
+                    Uygulamayı Yükle
+                  </button>
+                </motion.div>
+
+                {/* Partner Ol Action */}
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.3, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="flex flex-col items-center mb-5"
+                >
+                  <button
+                    onClick={() => setShowPartnerInfo(true)}
+                    className="text-foreground hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-colors uppercase cursor-pointer"
+                  >
+                    Partner Ol
+                  </button>
+                </motion.div>
+
+                {/* UĞRA MARKET Action */}
+                <motion.div
+                  initial={{ x: 20, opacity: 0 }}
+                  animate={{ x: 0, opacity: 1 }}
+                  transition={{ delay: 0.35, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
+                  className="flex flex-col items-center mb-5"
+                >
+                  <button
+                    onClick={() => setShowMarketInfo(true)}
+                    className="text-foreground hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-colors uppercase cursor-pointer"
+                  >
+                    UĞRA MARKET
+                  </button>
+                </motion.div>
+              </div>
+            </motion.div>
+          </>
         )}
       </AnimatePresence>
 
