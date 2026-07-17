@@ -72,7 +72,7 @@ function RotatingBullets() {
   }, []);
 
   return (
-    <div className="h-6 relative overflow-hidden mt-6 flex justify-center items-center text-sm md:text-base text-muted-foreground font-medium">
+    <div className="h-6 relative overflow-hidden mt-6 flex justify-center lg:justify-start lg:pl-4 items-center text-sm md:text-base text-muted-foreground font-medium">
       <AnimatePresence mode="popLayout">
         <motion.div
           key={index}
