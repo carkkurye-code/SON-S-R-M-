@@ -73,7 +73,7 @@ export function BecomeAssistant() {
     const WHATSAPP_NUMBER = "905394659154";
     const messageText = 
       `Merhaba.\n\n` +
-      `Yeni bir Motosiklet Asistanı Başvurusu alındı.\n\n` +
+      `Yeni bir Motosikletli Asistan Başvurusu alındı.\n\n` +
       `Ad Soyad:\n${formData.fullName}\n\n` +
       `Telefon:\n${formData.phone}\n\n` +
       `Şehir:\n${formData.city}\n\n` +
@@ -174,7 +174,7 @@ export function BecomeAssistant() {
                 <DialogHeader className="text-left">
                   <DialogTitle className="text-2xl font-bold flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full bg-primary" />
-                    Motosiklet Asistanı Başvurusu
+                    Motosikletli Asistan Başvurusu
                   </DialogTitle>
                   <DialogDescription className="text-sm text-muted-foreground mt-2 leading-relaxed">
                     Aramıza katılmak için aşağıdaki başvuru formunu eksiksiz doldurun.

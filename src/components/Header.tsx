@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Menu, X } from 'lucide-react';
 import { Link } from 'wouter';
@@ -6,13 +6,26 @@ import { Link } from 'wouter';
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
   const [showPartnerInfo, setShowPartnerInfo] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setScrolled(window.scrollY > 15);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
 
   return (
     <>
       <header 
-        className="absolute top-0 left-0 right-0 z-50 safe-top py-6"
+        className={`fixed top-0 left-0 right-0 z-50 safe-top transition-all duration-300 ${
+          scrolled 
+            ? 'bg-background/95 backdrop-blur-md border-b border-white/[0.05] py-3.5 shadow-lg shadow-black/25' 
+            : 'bg-transparent py-6'
+        }`}
       >
-        <div className="container mx-auto px-5 sm:px-6 md:px-12 flex justify-between items-start">
+        <div className="container mx-auto px-5 sm:px-6 md:px-12 flex justify-between items-center">
           {/* Brand Mark */}
           <Link href="/" className="group flex items-center gap-3 z-50 relative cursor-pointer">
             <img 

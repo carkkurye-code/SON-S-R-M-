@@ -20,7 +20,22 @@ export default defineConfig({
     VitePWA({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
-      includeAssets: ['favicon.svg', 'robots.txt', 'sitemap.xml', 'icons/apple-touch-icon.png'],
+      includeAssets: [
+        'favicon.svg',
+        'favicon.ico',
+        'favicon-16x16.png',
+        'favicon-32x32.png',
+        'apple-touch-icon.png',
+        'android-chrome-192x192.png',
+        'android-chrome-512x512.png',
+        'robots.txt',
+        'sitemap.xml',
+        'push-worker.js',
+        'icons/apple-touch-icon.png',
+        'icons/icon-192.png',
+        'icons/icon-512.png',
+        'icons/icon-maskable-512.png'
+      ],
       manifest: {
         id: '/',
         name: 'UĞRA — Şehir İçi Zaman Asistanınız',
@@ -34,6 +49,30 @@ export default defineConfig({
         background_color: '#141517',
         theme_color: '#141517',
         icons: [
+          {
+            src: 'favicon-16x16.png',
+            sizes: '16x16',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'favicon-32x32.png',
+            sizes: '32x32',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'android-chrome-192x192.png',
+            sizes: '192x192',
+            type: 'image/png',
+            purpose: 'any',
+          },
+          {
+            src: 'android-chrome-512x512.png',
+            sizes: '512x512',
+            type: 'image/png',
+            purpose: 'any',
+          },
           {
             src: 'icons/icon-192.png',
             sizes: '192x192',
@@ -55,6 +94,7 @@ export default defineConfig({
         ],
       },
       workbox: {
+        importScripts: ['push-worker.js'],
         globPatterns: ['**/*.{js,css,html,svg,png,ico,woff2}'],
         navigateFallbackDenylist: [/^\/api\//],
         runtimeCaching: [

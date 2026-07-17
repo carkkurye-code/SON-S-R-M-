@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowRight, 
   Loader2, 
-  CheckCircle2
+  CheckCircle2,
+  Bell,
+  BellRing
 } from 'lucide-react';
 import {
   Dialog,
@@ -13,6 +15,7 @@ import {
   DialogDescription,
 } from '@/components/ui/dialog';
 import { InteractiveCard } from '@/components/ui/InteractiveCard';
+import { getPushStatus, subscribeToPushNotifications, PushStatus } from '@/lib/push-notifications';
 
 export interface ActiveRequest {
   type: 'hemen' | 'gecerken';
@@ -37,6 +40,21 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
   const [selectedType, setSelectedType] = useState<'hemen' | 'gecerken' | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
+  const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
+  const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+
+  useEffect(() => {
+    if (isOpen) {
+      getPushStatus().then(setPushStatus);
+    }
+  }, [isOpen]);
+
+  const handleSubscribePush = async () => {
+    setIsSubscribingPush(true);
+    const result = await subscribeToPushNotifications();
+    setPushStatus(result);
+    setIsSubscribingPush(false);
+  };
 
   useEffect(() => {
     const checkMobile = () => {
@@ -218,6 +236,43 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                   </p>
                 </div>
               </div>
+
+              {/* Notification Banner/Card for PWA */}
+              {pushStatus && pushStatus.supported && (
+                <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 mt-4 text-left flex items-start gap-4">
+                  <div className="p-2.5 rounded-xl bg-[#FF7A00]/10 border border-[#FF7A00]/25 text-[#FF7A00] shrink-0">
+                    {pushStatus.permission === 'granted' ? (
+                      <BellRing className="w-5 h-5 animate-pulse" />
+                    ) : (
+                      <Bell className="w-5 h-5" />
+                    )}
+                  </div>
+                  <div className="flex-1 space-y-1">
+                    <h4 className="text-sm font-semibold text-foreground">
+                      {pushStatus.permission === 'granted' 
+                        ? 'Bildirimler Aktif' 
+                        : 'Sipariş Durumu Bildirimleri'}
+                    </h4>
+                    <p className="text-xs text-muted-foreground leading-relaxed">
+                      {pushStatus.permission === 'granted'
+                        ? 'Siparişiniz yola çıktığında ve teslim edildiğinde sizi anlık bilgilendireceğiz.'
+                        : 'Asistanınız yola çıktığında veya işiniz tamamlandığında anlık bildirim almak ister misiniz?'}
+                    </p>
+                    {pushStatus.permission === 'default' && (
+                      <button
+                        onClick={handleSubscribePush}
+                        disabled={isSubscribingPush}
+                        className="mt-3 text-xs bg-[#FF7A00] hover:bg-[#E06B00] text-white font-bold px-4 py-2 rounded-lg transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                      >
+                        {isSubscribingPush ? (
+                          <Loader2 className="w-3 h-3 animate-spin" />
+                        ) : null}
+                        Bildirimleri İzin Ver
+                      </button>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <button
                 onClick={() => onOpenChange(false)}
