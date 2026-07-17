@@ -1,10 +1,10 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { InteractiveCard } from '@/components/ui/InteractiveCard';
 
 const services = [
   "Önemli Evrak & Dosya",
-  "Anahtar Teslimatı",
+  "Yedek Parça",
   "Çiçek & Hediye Gönderimi",
   "Paket & Eşya Taşıma",
   "Mağaza & Alışveriş Siparişi",
@@ -18,6 +18,16 @@ interface ServicesProps {
 }
 
 export function Services({ onServiceClick }: ServicesProps) {
+  const [index, setIndex] = useState(0);
+  const texts = ["Senin için UĞRA'yalım", "Senin yerine UĞRA'yalım"];
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % texts.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
   return (
     <section className="py-24 relative z-10 border-t border-white/5">
       <div className="container mx-auto px-6 md:px-12">
@@ -31,15 +41,21 @@ export function Services({ onServiceClick }: ServicesProps) {
           >
             UĞRA<span className="text-primary">.</span>
           </motion.h2>
-          <motion.p 
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, margin: "-100px" }}
-            transition={{ duration: 0.6, delay: 0.1 }}
-            className="text-lg md:text-xl text-muted-foreground font-light max-w-xl mx-auto"
-          >
-            Senin için UĞRA'yalım.
-          </motion.p>
+          <div className="h-8 flex items-center justify-center overflow-hidden">
+            <AnimatePresence mode="wait">
+              <motion.div
+                key={index}
+                initial={{ y: 15, opacity: 0 }}
+                animate={{ y: 0, opacity: 1 }}
+                exit={{ y: -15, opacity: 0 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="flex items-center gap-2 text-lg md:text-xl text-muted-foreground font-light"
+              >
+                <span className="w-2.5 h-2.5 rounded-full bg-primary flex-shrink-0 shadow-[0_0_8px_rgba(235,104,33,0.6)] animate-pulse" />
+                <span>{texts[index]}</span>
+              </motion.div>
+            </AnimatePresence>
+          </div>
         </div>
 
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">

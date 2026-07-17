@@ -14,7 +14,7 @@ const faqs = [
   },
   {
     question: "Hemen Uğra ile Geçerken Uğra arasındaki temel fark nedir?",
-    answer: "Hemen UĞRA., saniyelerin ve dakikaların kritik olduğu durumlar içindir. Size özel atanan asistanımız doğrudan adresinize gelerek görevinizi kesintisiz yerine getirir. Geçerken UĞRA ise aciliyeti olmayan, gün içinde halledilmesi yeterli işleriniz içindir. Zaten o rotada seyahat eden bir asistanımız görevi üstlenir."
+    answer: "Hemen UĞRA, saniyelerin ve dakikaların kritik olduğu durumlar içindir. Size özel atanan asistanımız doğrudan adresinize gelerek görevinizi kesintisiz yerine getirir. Geçerken UĞRA ise aciliyeti olmayan, gün içinde halledilmesi yeterli işleriniz içindir. Zaten o rotada seyahat eden bir asistanımız görevi üstlenir."
   },
   {
     question: "Nasıl çalışır?",

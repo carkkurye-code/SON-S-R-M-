@@ -1,22 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowUpCircle } from 'lucide-react';
+import { ArrowUpCircle, MapPin } from 'lucide-react';
 import { InteractiveCard } from '@/components/ui/InteractiveCard';
 
 const messages = [
-  "Hazır siparişimi alabilir misin?",
-  "Gömleğimi kuru temizlemeden alabilir misin?",
-  "Anneme anahtarı bırakabilir misin?",
+  "Gömleğimi kuru temizlemeye bırakabilir misin?",
+  "Çiçek bırakabilir misin?",
+  "Anahtarımı getirebilir misin?",
   "Eczaneye uğrayabilir misin?",
-  "İş yerime evrak bırakabilir misin?",
-  "Çiçekçiden siparişimi alabilir misin?",
-  "Terminalden gelen kolimi alabilir misin?"
+  "Hediyemi teslim edebilir misin?",
+  "Evrak teslim edebilir misin?"
 ];
 
 const bullets = [
-  "✅ Senin yerine uğrar.",
-  "✅ Hazır olanı teslim alır, teslim eder.",
-  "✅ Sabit fiyat, sürpriz yok."
+  "Senin yerine uğrar.",
+  "Hazır olanı teslim alır, teslim eder.",
+  "Sabit fiyat, sürpriz yok."
 ];
 
 function Typewriter() {
@@ -81,11 +80,44 @@ function RotatingBullets() {
           animate={{ y: 0, opacity: 1 }}
           exit={{ y: -20, opacity: 0 }}
           transition={{ duration: 0.4, ease: "easeInOut" }}
-          className="absolute whitespace-nowrap"
+          className="absolute whitespace-nowrap flex items-center gap-2"
         >
-          {bullets[index]}
+          <span className="w-2 h-2 rounded-full bg-primary flex-shrink-0 shadow-[0_0_6px_rgba(235,104,33,0.6)] animate-pulse" />
+          <span>{bullets[index]}</span>
         </motion.div>
       </AnimatePresence>
+    </div>
+  );
+}
+
+function ServiceAreaPill() {
+  const areas = ["Adapazarı", "Serdivan", "Erenler"];
+  const [index, setIndex] = useState(0);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIndex((prev) => (prev + 1) % areas.length);
+    }, 3000);
+    return () => clearInterval(timer);
+  }, []);
+
+  return (
+    <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm font-medium border-white/5 shadow-lg h-9 overflow-hidden">
+      <MapPin className="w-4 h-4 text-primary shrink-0" />
+      <div className="relative w-24 h-5 overflow-hidden inline-flex items-center">
+        <AnimatePresence mode="wait">
+          <motion.span
+            key={index}
+            initial={{ y: 12, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: -12, opacity: 0 }}
+            transition={{ duration: 0.4, ease: "easeInOut" }}
+            className="absolute left-0 text-foreground font-medium"
+          >
+            {areas[index]}
+          </motion.span>
+        </AnimatePresence>
+      </div>
     </div>
   );
 }
@@ -135,9 +167,7 @@ export function Hero() {
             </div>
 
             <div className="mt-6">
-              <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full glass-panel text-sm font-medium border-white/5 shadow-lg">
-                <span className="text-base">📍</span> İlk durağımız: Sakarya
-              </div>
+              <ServiceAreaPill />
             </div>
 
             <div className="w-full max-w-sm">
