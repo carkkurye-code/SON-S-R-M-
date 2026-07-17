@@ -1,0 +1,6 @@
+{
+  "name": "Uğra",
+  "description": "Gitmeye vakit bulamadığın her yere senin için Uğra'yalım. Şehir içi zaman asistanınız.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

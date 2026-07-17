@@ -1,0 +1,27 @@
+kind = "web"
+previewPath = "/"
+title = "UĞRA"
+version = "1.0.0"
+id = "artifacts/ugra"
+router = "path"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 18218
+
+[services.development]
+run = "pnpm --filter @workspace/ugra run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/ugra", "run", "build" ]
+serve = "static"
+publicDir = "artifacts/ugra/dist"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "18218"
+BASE_PATH = "/"
