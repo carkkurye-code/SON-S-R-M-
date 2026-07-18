@@ -25,6 +25,10 @@ const faqs = [
     answer: "Evrak tesliminden mağaza paket alımına, anahtar ulaştırmadan unutulan eşya getirmeye kadar her türlü şehir içi küçük operasyonu kapsar."
   },
   {
+    question: "Yasa dışı ürünler taşınır mı?",
+    answer: "Hayır. UĞRA; uyuşturucu, silah, patlayıcı, kaçak ürünler ve kanunen taşınması yasak olan hiçbir ürünü taşımaz. Şüpheli görülen gönderiler teslim alınmayabilir ve gerekli durumlarda yetkili mercilere bildirilebilir."
+  },
+  {
     question: "Sabit fiyat mı?",
     answer: "Evet. Sürpriz ücretlendirmeler yoktur, mesafeye ve işin niteliğine göre önceden belirlenen şeffaf ve sabit bir fiyat uygulanır."
   },

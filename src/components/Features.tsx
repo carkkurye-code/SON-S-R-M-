@@ -36,12 +36,20 @@ interface BookingDialogProps {
 }
 
 export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess }: BookingDialogProps) {
-  const [stage, setStage] = useState<'choice' | 'success'>('choice');
+  const [stage, setStage] = useState<'choice' | 'consent' | 'success'>('choice');
   const [selectedType, setSelectedType] = useState<'hemen' | 'gecerken' | null>(null);
+  const [isConsentChecked, setIsConsentChecked] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [pushStatus, setPushStatus] = useState<PushStatus | null>(null);
   const [isSubscribingPush, setIsSubscribingPush] = useState(false);
+  const [localService, setLocalService] = useState<string>('Listede Olmayan İşler');
+
+  useEffect(() => {
+    if (selectedService) {
+      setLocalService(selectedService);
+    }
+  }, [selectedService]);
 
   useEffect(() => {
     if (isOpen) {
@@ -70,23 +78,31 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
     if (isOpen) {
       setStage('choice');
       setSelectedType(null);
+      setIsConsentChecked(false);
     }
   }, [isOpen, selectedService]);
 
-  const handleChooseType = (type: 'hemen' | 'gecerken') => {
+  const handleSelectType = (type: 'hemen' | 'gecerken') => {
     setSelectedType(type);
+    setStage('consent');
+  };
+
+  const handleConfirmConsent = () => {
+    if (!selectedType || !isConsentChecked) return;
     setIsSubmitting(true);
 
-    const now = new Date();
-    const serviceName = selectedService || 'Genel Zaman Asistanlığı';
-    const deliveryTypeLabel = type === 'hemen' ? 'Hemen UĞRA' : 'Geçerken UĞRA';
+    const serviceName = localService || 'Listede Olmayan İşler';
+    const deliveryTypeLabel = selectedType === 'hemen' ? 'Hemen UĞRA' : 'Geçerken UĞRA';
 
     const messageText =
-      `Merhaba.\n\n` +
-      `UĞRA üzerinden yeni bir asistan talebi oluşturdum.\n\n` +
-      `Hizmet:\n${serviceName}\n\n` +
-      `Tercih:\n${deliveryTypeLabel}\n\n` +
-      `Asistanımız en kısa sürede sizi arayacaktır.`;
+      `Merhaba UĞRA.\n\n` +
+      `Yeni bir hizmet talebi oluşturmak istiyorum.\n\n` +
+      `• Teslimat Tipi\n` +
+      `${deliveryTypeLabel}\n\n` +
+      `• Hizmet\n` +
+      `${serviceName}\n\n` +
+      `Hizmet koşullarını okudum ve kabul ediyorum.\n\n` +
+      `Müsait olduğunuzda beni arayabilirsiniz.`;
 
     // WhatsApp Number (changeable by the user, country code + number)
     const WHATSAPP_NUMBER = "905394659154";
@@ -101,7 +117,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
 
     setTimeout(() => {
       const newRequest: ActiveRequest = {
-        type: type,
+        type: selectedType,
         details: serviceName,
         status: 'pending',
         createdAt: Date.now(),
@@ -115,7 +131,10 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[500px] bg-card border-white/10 text-foreground rounded-[2rem] p-6 md:p-8 max-h-[90vh] overflow-y-auto">
+      <DialogContent 
+        hideClose={stage === 'success'} 
+        className={`${stage === 'success' ? 'w-[85%] max-w-[360px] bg-white border-none shadow-[0_12px_40px_rgba(0,0,0,0.08)] text-[#111111] rounded-[20px] p-6' : 'w-full sm:max-w-[500px] bg-card border-white/10 text-foreground rounded-[2rem] p-6 md:p-8'} max-h-[90vh] overflow-y-auto transition-all duration-300`}
+      >
         
         <AnimatePresence mode="wait">
           
@@ -135,7 +154,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                   Uğra Teslimat Tipi
                 </DialogTitle>
                 <DialogDescription className="text-sm text-muted-foreground mt-2 leading-relaxed">
-                  <span className="text-foreground font-semibold">"{selectedService}"</span> işiniz için zaman ve fiyat modelini seçin.
+                  <span className="text-foreground font-semibold">"{localService}"</span> işiniz için zaman ve fiyat modelini seçin.
                 </DialogDescription>
               </DialogHeader>
 
@@ -144,7 +163,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                 {/* Hemen UĞRA Card */}
                 <InteractiveCard
                   animateOnScroll={false}
-                  onClick={() => !isSubmitting && handleChooseType('hemen')}
+                  onClick={() => !isSubmitting && handleSelectType('hemen')}
                   active={!isSubmitting}
                   hoverBorderColor="rgba(235, 104, 33, 0.4)"
                   hoverShadow="0 20px 40px -10px rgba(235, 104, 33, 0.25), inset 0 1px 0 0 rgba(255,255,255,0.1)"
@@ -177,7 +196,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                 {/* Geçerken UĞRA Card */}
                 <InteractiveCard
                   animateOnScroll={false}
-                  onClick={() => !isSubmitting && handleChooseType('gecerken')}
+                  onClick={() => !isSubmitting && handleSelectType('gecerken')}
                   active={!isSubmitting}
                   hoverBorderColor="rgba(255, 255, 255, 0.2)"
                   hoverShadow="0 20px 40px -10px rgba(255, 255, 255, 0.05), inset 0 1px 0 0 rgba(255,255,255,0.1)"
@@ -211,36 +230,133 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
             </motion.div>
           )}
 
+          {/* STAGE: CONSENT */}
+          {stage === 'consent' && (
+            <motion.div
+              key="consent-stage"
+              initial={{ opacity: 0, scale: 0.95 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.95 }}
+              transition={{ duration: 0.3 }}
+              className="space-y-6"
+            >
+              <DialogHeader className="text-left">
+                <DialogTitle className="text-2xl font-bold flex items-center gap-2.5">
+                  <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A00] shadow-[0_0_12px_rgba(255,122,0,0.8)] flex-shrink-0" />
+                  Hizmet Onayı
+                </DialogTitle>
+                <DialogDescription className="text-sm text-muted-foreground mt-2 leading-relaxed">
+                  Lütfen devam etmeden önce aşağıdaki kuralları ve hizmet koşullarını onaylayın.
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="bg-white/[0.03] border border-white/5 rounded-2xl p-5 text-sm space-y-4 max-h-[250px] overflow-y-auto leading-relaxed select-none text-muted-foreground">
+                <p>
+                  UĞRA yalnızca Türkiye Cumhuriyeti kanunlarına uygun talepleri yerine getirir.
+                </p>
+                <p>
+                  Talebimin yasa dışı herhangi bir işlem, ürün veya hizmet içermediğini, aksi durumda doğabilecek tüm hukuki ve cezai sorumluluğun tarafıma ait olduğunu kabul ediyorum.
+                </p>
+                <p>
+                  UĞRA, gerekli gördüğü durumlarda talebi reddetme, hizmeti durdurma ve yasal zorunluluk halinde ilgili resmi kurumlarla iş birliği yapma hakkını saklı tutar.
+                </p>
+              </div>
+
+              <div className="flex items-start gap-3 pt-2">
+                <label className="flex items-center gap-3 cursor-pointer select-none group text-sm font-medium">
+                  <div className="relative flex items-center">
+                    <input
+                      type="checkbox"
+                      checked={isConsentChecked}
+                      onChange={(e) => setIsConsentChecked(e.target.checked)}
+                      className="peer sr-only"
+                    />
+                    <div className="w-5 h-5 border border-white/20 rounded-md bg-white/[0.02] peer-checked:bg-primary peer-checked:border-primary transition-all flex items-center justify-center">
+                      <svg
+                        className="w-3.5 h-3.5 text-white opacity-0 peer-checked:opacity-100 transition-opacity"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                        strokeWidth="3.5"
+                      >
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                  </div>
+                  <span className="text-muted-foreground group-hover:text-foreground transition-colors text-sm">
+                    Okudum, anladım ve kabul ediyorum.
+                  </span>
+                </label>
+              </div>
+
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setStage('choice')}
+                  className="flex-1 py-3.5 px-4 rounded-xl text-sm font-bold uppercase tracking-wider bg-white/[0.03] hover:bg-white/[0.08] active:scale-95 transition-all text-muted-foreground border border-white/5 cursor-pointer"
+                >
+                  Geri
+                </button>
+                <button
+                  onClick={handleConfirmConsent}
+                  disabled={!isConsentChecked || isSubmitting}
+                  className="flex-[2] py-3.5 px-6 rounded-xl text-sm font-bold uppercase tracking-wider text-white bg-primary hover:bg-[#E06B00] disabled:opacity-40 disabled:pointer-events-none disabled:bg-primary/50 shadow-lg shadow-primary/10 active:scale-95 transition-all flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  {isSubmitting ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" /> İletiliyor...
+                    </>
+                  ) : (
+                    <>
+                      WhatsApp ile Devam Et →
+                    </>
+                  )}
+                </button>
+              </div>
+            </motion.div>
+          )}
+
           {/* STAGE 2: SUCCESS */}
           {stage === 'success' && (
             <motion.div
               key="success-stage"
-              className="flex flex-col items-center justify-center text-center py-8 space-y-5"
+              className="flex flex-col items-center justify-center text-center py-4 space-y-5"
               initial={{ opacity: 0, scale: 0.95 }}
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0 }}
-              transition={{ duration: 0.3 }}
+              transition={{ duration: 0.25, ease: "easeOut" }}
             >
-              <div className="w-16 h-16 rounded-full bg-emerald-500/10 flex items-center justify-center border border-emerald-500/30">
-                <CheckCircle2 className="w-10 h-10 text-emerald-400" />
+              {/* BRAND LOGO */}
+              <div className="font-sans font-extrabold tracking-wider text-3xl text-[#111111] select-none text-center">
+                UĞRA<span className="text-[#F97316]">.</span>
               </div>
               
-              <div className="space-y-3">
-                <h3 className="text-2xl font-bold text-foreground">✅ Talebiniz Alındı</h3>
-                <div className="space-y-2 max-w-sm mx-auto">
-                  <p className="text-sm text-muted-foreground leading-relaxed">
-                    Asistanımız sizi birkaç dakika içerisinde telefonla arayacaktır.
-                  </p>
-                  <p className="text-sm font-medium text-foreground leading-relaxed">
-                    Lütfen telefonunuzu ulaşılabilir durumda tutunuz.
-                  </p>
-                </div>
-              </div>
+              {/* HEADER */}
+              <h3 className="text-[22px] font-bold text-[#111111] tracking-tight text-center">
+                Talebiniz Alındı
+              </h3>
+
+              {/* PRIMARY SUBTEXT */}
+              <p className="text-[15px] font-normal text-[#6B7280] leading-relaxed text-center">
+                Asistanımız talebinizi aldı.<br />
+                En kısa sürede sizinle iletişime geçecektir.
+              </p>
+
+              {/* DIVIDER 1 */}
+              <div className="w-full border-t border-gray-100 my-1"></div>
+
+              {/* SECONDARY INFO */}
+              <p className="text-[13px] font-normal text-gray-400 leading-relaxed text-center">
+                Lütfen telefonunuzu açık ve<br />
+                ulaşılabilir durumda tutunuz.
+              </p>
+
+              {/* DIVIDER 2 */}
+              <div className="w-full border-t border-gray-100 my-1"></div>
 
               {/* Notification Banner/Card for PWA */}
               {pushStatus && pushStatus.supported && (
-                <div className="w-full bg-white/[0.02] border border-white/5 rounded-2xl p-4 mt-4 text-left flex items-start gap-4">
-                  <div className="p-2.5 rounded-xl bg-[#FF7A00]/10 border border-[#FF7A00]/25 text-[#FF7A00] shrink-0">
+                <div className="w-full bg-gray-50 border border-gray-100 rounded-2xl p-4 mt-1 text-left flex items-start gap-4">
+                  <div className="p-2.5 rounded-xl bg-[#F97316]/10 border border-[#F97316]/20 text-[#F97316] shrink-0">
                     {pushStatus.permission === 'granted' ? (
                       <BellRing className="w-5 h-5 animate-pulse" />
                     ) : (
@@ -248,12 +364,12 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                     )}
                   </div>
                   <div className="flex-1 space-y-1">
-                    <h4 className="text-sm font-semibold text-foreground">
+                    <h4 className="text-sm font-semibold text-gray-900">
                       {pushStatus.permission === 'granted' 
                         ? 'Bildirimler Aktif' 
                         : 'Sipariş Durumu Bildirimleri'}
                     </h4>
-                    <p className="text-xs text-muted-foreground leading-relaxed">
+                    <p className="text-xs text-gray-500 leading-relaxed">
                       {pushStatus.permission === 'granted'
                         ? 'Siparişiniz yola çıktığında ve teslim edildiğinde sizi anlık bilgilendireceğiz.'
                         : 'Asistanınız yola çıktığında veya işiniz tamamlandığında anlık bildirim almak ister misiniz?'}
@@ -262,7 +378,7 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                       <button
                         onClick={handleSubscribePush}
                         disabled={isSubscribingPush}
-                        className="mt-3 text-xs bg-[#FF7A00] hover:bg-[#E06B00] text-white font-bold px-4 py-2 rounded-lg transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
+                        className="mt-3 text-xs bg-[#F97316] hover:bg-[#ea580c] text-white font-bold px-4 py-2 rounded-lg transition-colors duration-300 active:scale-[0.98] disabled:opacity-50 cursor-pointer flex items-center gap-1.5"
                       >
                         {isSubscribingPush ? (
                           <Loader2 className="w-3 h-3 animate-spin" />
@@ -274,9 +390,10 @@ export function BookingDialog({ isOpen, onOpenChange, selectedService, onSuccess
                 </div>
               )}
 
+              {/* SUBMIT BUTTON */}
               <button
                 onClick={() => onOpenChange(false)}
-                className="w-full sm:w-auto min-w-[140px] mt-6 bg-primary hover:bg-primary/95 text-primary-foreground font-semibold px-8 py-3.5 rounded-xl transition-all active:scale-[0.98] cursor-pointer text-sm"
+                className="w-full h-[50px] bg-[#F97316] hover:bg-[#ea580c] text-white font-semibold rounded-[16px] transition-colors duration-300 ease-out active:scale-[0.98] cursor-pointer text-base shadow-sm"
               >
                 Tamam
               </button>

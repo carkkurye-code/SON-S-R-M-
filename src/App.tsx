@@ -2,6 +2,7 @@ import React from 'react';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { Home } from '@/pages/Home';
+import { TasimaKosullari } from '@/pages/TasimaKosullari';
 import { Toaster } from '@/components/ui/toaster';
 
 const queryClient = new QueryClient();
@@ -24,6 +25,7 @@ function Router() {
   return (
     <Switch>
       <Route path="/" component={Home} />
+      <Route path="/tasima-kosullari" component={TasimaKosullari} />
       <Route component={NotFound} />
     </Switch>
   );

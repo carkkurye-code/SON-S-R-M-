@@ -1,4 +1,5 @@
 import React from 'react';
+import { Link } from 'wouter';
 
 export function Footer() {
   return (
@@ -9,14 +10,22 @@ export function Footer() {
           <span className="text-xs opacity-70 mt-1">Gökhan Gökalp</span>
         </div>
         
-        <a 
-          href="https://instagram.com/ugra.app" 
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
-        >
-          Instagram
-        </a>
+        <div className="flex items-center gap-6">
+          <Link 
+            href="/tasima-kosullari" 
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
+          >
+            Taşıma Koşulları
+          </Link>
+          <a 
+            href="https://instagram.com/ugra.app" 
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+          >
+            Instagram
+          </a>
+        </div>
       </div>
     </footer>
   );

@@ -58,13 +58,13 @@ export function Services({ onServiceClick }: ServicesProps) {
           </div>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-6">
           {services.map((service, i) => (
             <InteractiveCard
               key={service}
               delay={i * 0.05}
               onClick={() => onServiceClick(service)}
-              className="glass-card rounded-2xl p-4 sm:p-6 flex flex-col items-center justify-center text-center group cursor-pointer h-full border border-white/5 transition-all duration-300 relative overflow-hidden"
+              className="glass-card rounded-2xl p-3.5 sm:p-6 flex flex-col items-center justify-center text-center group cursor-pointer h-full border border-white/5 transition-all duration-300 relative overflow-hidden"
               hoverBgColor="rgba(255, 255, 255, 0.04)"
               hoverBorderColor="rgba(235, 104, 33, 0.4)"
               hoverShadow="0 20px 40px -10px rgba(235, 104, 33, 0.15), inset 0 1px 0 0 rgba(255,255,255,0.05)"
@@ -72,9 +72,9 @@ export function Services({ onServiceClick }: ServicesProps) {
               {/* Subtle highlight gradient */}
               <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
               
-              <span className="text-xs sm:text-sm md:text-base font-medium text-muted-foreground group-hover:text-foreground transition-colors duration-300 relative z-10 flex items-center justify-center gap-2 w-full break-words">
+              <span className="text-sm sm:text-base font-semibold text-muted-foreground group-hover:text-foreground transition-colors duration-300 relative z-10 flex items-center justify-center gap-1.5 sm:gap-2 w-full break-words">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary/40 group-hover:bg-primary transition-colors duration-300 flex-shrink-0" />
-                <span className="text-center">{service}</span>
+                <span className="text-center leading-snug">{service}</span>
               </span>
             </InteractiveCard>
           ))}
