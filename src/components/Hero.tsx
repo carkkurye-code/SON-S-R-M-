@@ -198,12 +198,16 @@ export function Hero() {
               onMouseEnter={() => setIsMarketHovered(true)}
               onMouseLeave={() => setIsMarketHovered(false)}
               onClick={() => setShowMarketModal(true)}
-              className="w-full glass-panel rounded-[2rem] p-6 flex justify-between items-center z-30 shadow-[0_20px_40px_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/[0.08] to-transparent border border-white/10 cursor-pointer transition-all duration-500 relative overflow-hidden group"
+              className={`glass-panel rounded-[2rem] p-6 flex justify-between items-center cursor-pointer transition-all duration-500 relative overflow-hidden group ${
+                isMarketHovered 
+                  ? "w-full z-30 opacity-100 border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/[0.08] to-transparent" 
+                  : "w-[95%] z-20 opacity-80 border border-white/5 shadow-none bg-white/[0.02]"
+              }`}
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/20 transition-colors duration-700" />
               <div className="flex items-center gap-3 relative z-10">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A00] flex-shrink-0 animate-pulse" />
-                <div className="font-bold text-xl tracking-wide text-foreground">UĞRA MARKET</div>
+                <span className={`w-2.5 h-2.5 rounded-full bg-[#FF7A00] flex-shrink-0 transition-all duration-300 ${isMarketHovered ? "animate-pulse opacity-100" : "opacity-70"}`} />
+                <div className={`transition-all duration-300 ${isMarketHovered ? "font-bold text-xl tracking-wide text-foreground" : "font-semibold text-lg text-muted-foreground"}`}>UĞRA MARKET</div>
               </div>
               <div className="relative h-7 flex items-center justify-end z-10">
                 <AnimatePresence mode="wait">
@@ -226,17 +230,21 @@ export function Hero() {
             <InteractiveCard 
               animateOnScroll={false}
               active={true}
-              hoverBorderColor="rgba(235, 104, 33, 0.3)"
-              hoverShadow="0 30px 60px -15px rgba(235, 104, 33, 0.15)"
+              hoverBorderColor="rgba(235, 104, 33, 0.4)"
+              hoverShadow="0 30px 60px -15px rgba(235, 104, 33, 0.25), inset 0 1px 0 0 rgba(255,255,255,0.15)"
               onMouseEnter={() => setIsPartnerHovered(true)}
               onMouseLeave={() => setIsPartnerHovered(false)}
               onClick={() => setShowPartnerModal(true)}
-              className="w-[95%] glass-panel rounded-[2rem] p-6 flex justify-between items-center z-20 opacity-80 border border-white/5 cursor-pointer transition-all duration-500 relative overflow-hidden group"
+              className={`glass-panel rounded-[2rem] p-6 flex justify-between items-center cursor-pointer transition-all duration-500 relative overflow-hidden group ${
+                isPartnerHovered 
+                  ? "w-full z-30 opacity-100 border-white/10 shadow-[0_20px_40px_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/[0.08] to-transparent" 
+                  : "w-[95%] z-20 opacity-80 border border-white/5 shadow-none bg-white/[0.02]"
+              }`}
             >
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full pointer-events-none" />
+              <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/20 transition-colors duration-700" />
               <div className="flex items-center gap-3 relative z-10">
-                <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]/70 group-hover:bg-[#FF7A00] flex-shrink-0 transition-colors duration-300" />
-                <div className="font-semibold text-lg text-muted-foreground group-hover:text-foreground transition-colors duration-300">UĞRA PARTNER</div>
+                <span className={`w-2.5 h-2.5 rounded-full bg-[#FF7A00] flex-shrink-0 transition-all duration-300 ${isPartnerHovered ? "animate-pulse opacity-100" : "opacity-70"}`} />
+                <div className={`transition-all duration-300 ${isPartnerHovered ? "font-bold text-xl tracking-wide text-foreground" : "font-semibold text-lg text-muted-foreground"}`}>UĞRA PARTNER</div>
               </div>
               <div className="relative h-7 flex items-center justify-end z-10">
                 <AnimatePresence mode="wait">
