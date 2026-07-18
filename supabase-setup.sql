@@ -129,7 +129,72 @@ CREATE POLICY "Allow partners to update orders of their business"
         SELECT partner_id FROM public.profiles WHERE id = auth.uid()
     ) OR partner_id = auth.uid());
 
--- 4. STORAGE BUCKETS
--- Run these commands or manually create 'products' and 'logos' buckets in Supabase Storage with "Public" access enabled.
--- Policy for Storage Uploads:
--- Allow authenticated uploads to 'products' and 'logos' buckets.
+-- 4. STORAGE BUCKETS AND RLS POLICIES FOR PRODUCTS AND LOGOS
+
+-- Create buckets if they don't exist
+INSERT INTO storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+VALUES 
+  ('products', 'products', true, 5242880, ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml']),
+  ('logos', 'logos', true, 2097152, ARRAY['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/svg+xml'])
+ON CONFLICT (id) DO NOTHING;
+
+-- Enable RLS on storage.objects
+ALTER TABLE storage.objects ENABLE ROW LEVEL SECURITY;
+
+-- Allow public read access to all objects in products and logos buckets
+DROP POLICY IF EXISTS "Public Read Access" ON storage.objects;
+CREATE POLICY "Public Read Access" 
+    ON storage.objects FOR SELECT 
+    USING (bucket_id IN ('products', 'logos'));
+
+-- Allow authenticated uploads/inserts to products and logos buckets
+DROP POLICY IF EXISTS "Authenticated Upload Access" ON storage.objects;
+CREATE POLICY "Authenticated Upload Access" 
+    ON storage.objects FOR INSERT 
+    WITH CHECK (bucket_id IN ('products', 'logos') AND auth.role() = 'authenticated');
+
+-- Allow authenticated updates to products and logos buckets
+DROP POLICY IF EXISTS "Authenticated Update Access" ON storage.objects;
+CREATE POLICY "Authenticated Update Access" 
+    ON storage.objects FOR UPDATE 
+    USING (bucket_id IN ('products', 'logos') AND auth.role() = 'authenticated');
+
+-- Allow authenticated deletes from products and logos buckets
+DROP POLICY IF EXISTS "Authenticated Delete Access" ON storage.objects;
+CREATE POLICY "Authenticated Delete Access" 
+    ON storage.objects FOR DELETE 
+    USING (bucket_id IN ('products', 'logos') AND auth.role() = 'authenticated');
+
+
+-- 5. AUTOMATIC SIGNUP TRIGGER (PARTNERS & PROFILES AUTO-POPULATION)
+-- This function automatically creates a partner and profile entry when a user signs up.
+-- It ensures seamless multi-tenant signups even if email confirmation is enabled.
+CREATE OR REPLACE FUNCTION public.handle_new_user()
+RETURNS TRIGGER AS $$
+DECLARE
+    v_business_name TEXT;
+    v_slug TEXT;
+BEGIN
+    v_business_name := COALESCE(new.raw_user_meta_data->>'business_name', 'Yeni İşletme');
+    v_slug := COALESCE(new.raw_user_meta_data->>'slug', 'isletme-' || substr(new.id::text, 1, 8));
+
+    -- Insert into partners
+    INSERT INTO public.partners (id, slug, business_name, active)
+    VALUES (new.id, v_slug, v_business_name, true)
+    ON CONFLICT (id) DO NOTHING;
+
+    -- Insert into profiles
+    INSERT INTO public.profiles (id, partner_id, role)
+    VALUES (new.id, new.id, 'owner')
+    ON CONFLICT (id) DO NOTHING;
+
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Bind the trigger
+DROP TRIGGER IF EXISTS on_auth_user_created ON auth.users;
+CREATE TRIGGER on_auth_user_created
+    AFTER INSERT ON auth.users
+    FOR EACH ROW EXECUTE FUNCTION public.handle_new_user();
+

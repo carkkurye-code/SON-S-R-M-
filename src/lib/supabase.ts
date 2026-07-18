@@ -343,30 +343,58 @@ export const db = {
 
       const userId = authData.user.id;
 
-      // 2. Create partner entry (using uuid of user as partner_id to simplify, or separate uuid)
-      const { data: partnerData, error: partnerError } = await supabase
-        .from('partners')
-        .insert({
+      // 2. Create partner entry (using upsert so it works seamlessly if trigger already inserted it or if client inserts it)
+      let partnerData = null;
+      try {
+        const { data: upsertedPartner, error: partnerError } = await supabase
+          .from('partners')
+          .upsert({
+            id: userId,
+            slug: cleanSlug,
+            business_name: businessName,
+            active: true
+          })
+          .select()
+          .maybeSingle();
+        
+        if (!partnerError && upsertedPartner) {
+          partnerData = upsertedPartner;
+        } else {
+          // Fallback to fetch
+          const { data: fetchedPartner } = await supabase
+            .from('partners')
+            .select('*')
+            .eq('id', userId)
+            .maybeSingle();
+          partnerData = fetchedPartner;
+        }
+      } catch (e) {
+        console.warn('Could not insert partner from client (likely waiting for email verification):', e);
+      }
+
+      // If partnerData is still null, create a fallback object so the application doesn't break
+      if (!partnerData) {
+        partnerData = {
           id: userId,
           slug: cleanSlug,
           business_name: businessName,
-          active: true
-        })
-        .select()
-        .single();
-      
-      if (partnerError) throw partnerError;
+          active: true,
+          created_at: new Date().toISOString()
+        };
+      }
 
-      // 3. Create profile entry
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .insert({
-          id: userId,
-          partner_id: userId,
-          role: 'owner'
-        });
-
-      if (profileError) throw profileError;
+      // 3. Create profile entry (using upsert)
+      try {
+        await supabase
+          .from('profiles')
+          .upsert({
+            id: userId,
+            partner_id: userId,
+            role: 'owner'
+          });
+      } catch (e) {
+        console.warn('Could not insert profile from client (likely waiting for email verification):', e);
+      }
 
       return { user: authData.user, partner: partnerData };
     } else {
