@@ -107,17 +107,23 @@ export function Header() {
                   initial={{ x: 20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.25, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex flex-col items-center gap-1.5"
+                  className="flex flex-col items-center gap-3 w-full"
                 >
                   <button
                     onClick={() => {
                       setIsOpen(false);
                       window.dispatchEvent(new CustomEvent('trigger-pwa-install'));
                     }}
-                    className="px-6 py-2 border border-white/10 rounded-full hover:bg-[#FF7A00]/10 hover:border-[#FF7A00] hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer"
+                    className="w-full max-w-[240px] px-6 py-2.5 border border-white/10 rounded-full hover:bg-[#FF7A00]/10 hover:border-[#FF7A00] hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer text-center"
                   >
                     Uygulamayı Yükle
                   </button>
+
+                  <Link href="/partner/login" onClick={() => setIsOpen(false)} className="w-full max-w-[240px]">
+                    <span className="w-full block px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer text-center">
+                      İşletme Paneli
+                    </span>
+                  </Link>
                 </motion.div>
               </div>
             </motion.div>
