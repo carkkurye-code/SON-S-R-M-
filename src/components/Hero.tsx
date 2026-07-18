@@ -123,6 +123,9 @@ function ServiceAreaPill() {
 }
 
 export function Hero() {
+  const [isMotorcycleSelected, setIsMotorcycleSelected] = useState(false);
+  const [isBicycleHovered, setIsBicycleHovered] = useState(false);
+
   return (
     <section className="min-h-[100dvh] pt-32 pb-16 flex flex-col justify-center relative overflow-hidden">
       {/* Background ambient glow */}
@@ -149,7 +152,7 @@ export function Hero() {
           >
             Gitmeye vakit bulamadığın her yere senin için <span className="text-foreground font-medium">UĞRA'yalım.</span>
           </motion.p>
-
+ 
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
@@ -158,24 +161,24 @@ export function Hero() {
           >
             {/* Fake Input */}
             <div className="w-full glass-panel rounded-2xl p-4 md:p-5 flex items-center gap-4 cursor-default border-white/10 shadow-[0_12px_40px_rgba(0,0,0,0.4)]">
-              <div className="flex-1 text-left overflow-hidden min-h-[24px] text-base md:text-lg">
+              <div className="flex-1 text-left overflow-hidden min-h-[28px] text-lg md:text-xl font-medium">
                 <Typewriter />
               </div>
               <div className="w-8 h-8 rounded-full bg-white/5 flex items-center justify-center shrink-0 border border-white/10 opacity-50">
                 <ArrowUpCircle className="w-5 h-5 text-white/50" />
               </div>
             </div>
-
+ 
             <div className="mt-6">
               <ServiceAreaPill />
             </div>
-
+ 
             <div className="w-full max-w-sm">
               <RotatingBullets />
             </div>
           </motion.div>
         </div>
-
+ 
         {/* Right Side: Cards */}
         <div className="lg:col-span-5 relative h-[400px] md:h-[500px] w-full max-w-md mx-auto perspective-1000">
           <motion.div 
@@ -190,6 +193,7 @@ export function Hero() {
               active={true}
               hoverBorderColor="rgba(235, 104, 33, 0.4)"
               hoverShadow="0 30px 60px -15px rgba(235, 104, 33, 0.25), inset 0 1px 0 0 rgba(255,255,255,0.15)"
+              onClick={() => setIsMotorcycleSelected(prev => !prev)}
               className="w-full glass-panel rounded-[2rem] p-6 flex justify-between items-center z-30 shadow-[0_20px_40px_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/[0.08] to-transparent border border-white/10 cursor-pointer transition-all duration-500 relative overflow-hidden group"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/20 transition-colors duration-700" />
@@ -197,17 +201,31 @@ export function Hero() {
                 <div className="text-4xl group-hover:scale-110 transition-transform duration-300">🛵</div>
                 <div className="font-bold text-xl tracking-wide text-foreground">Motosiklet</div>
               </div>
-              <div className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30 relative z-10">
-                Aktif
+              <div className="relative h-7 flex items-center justify-end z-10">
+                <AnimatePresence mode="wait">
+                  {isMotorcycleSelected && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30"
+                    >
+                      Aktif
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </InteractiveCard>
-
+ 
             {/* Bisiklet Card */}
             <InteractiveCard 
               animateOnScroll={false}
               active={true}
-              hoverBorderColor="rgba(255, 255, 255, 0.25)"
-              hoverShadow="0 30px 60px -15px rgba(255, 255, 255, 0.08)"
+              hoverBorderColor="rgba(235, 104, 33, 0.3)"
+              hoverShadow="0 30px 60px -15px rgba(235, 104, 33, 0.15)"
+              onMouseEnter={() => setIsBicycleHovered(true)}
+              onMouseLeave={() => setIsBicycleHovered(false)}
               className="w-[95%] glass-panel rounded-[2rem] p-6 flex justify-between items-center z-20 opacity-80 border border-white/5 cursor-pointer transition-all duration-500 relative overflow-hidden group"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full pointer-events-none" />
@@ -215,13 +233,25 @@ export function Hero() {
                 <div className="text-3xl grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300">🚲</div>
                 <div className="font-semibold text-lg text-muted-foreground group-hover:text-foreground transition-colors duration-300">Bisiklet</div>
               </div>
-              <div className="px-3 py-1 rounded-full bg-white/5 text-muted-foreground text-xs font-semibold uppercase tracking-wider border border-white/10 group-hover:border-white/20 group-hover:text-foreground transition-all duration-300 relative z-10">
-                Çok Yakında
+              <div className="relative h-7 flex items-center justify-end z-10">
+                <AnimatePresence mode="wait">
+                  {isBicycleHovered && (
+                    <motion.div
+                      initial={{ opacity: 0, scale: 0.8, x: 10 }}
+                      animate={{ opacity: 1, scale: 1, x: 0 }}
+                      exit={{ opacity: 0, scale: 0.8, x: 10 }}
+                      transition={{ duration: 0.2 }}
+                      className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30"
+                    >
+                      Çok Yakında
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </InteractiveCard>
           </motion.div>
         </div>
-
+ 
       </div>
     </section>
   );
