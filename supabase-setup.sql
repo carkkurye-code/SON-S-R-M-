@@ -70,6 +70,12 @@ CREATE POLICY "Allow public read access to active partners"
     ON public.partners FOR SELECT 
     USING (active = true);
 
+CREATE POLICY "Allow partners to view their own business profile" 
+    ON public.partners FOR SELECT 
+    USING (auth.uid() = id OR id IN (
+        SELECT partner_id FROM public.profiles WHERE id = auth.uid()
+    ));
+
 CREATE POLICY "Allow partners to update their own business profile" 
     ON public.partners FOR UPDATE 
     USING (auth.uid() = id OR id IN (
@@ -84,6 +90,10 @@ CREATE POLICY "Allow authenticated sign-up creation"
 CREATE POLICY "Allow users to read their own profile" 
     ON public.profiles FOR SELECT 
     USING (auth.uid() = id);
+
+CREATE POLICY "Allow users to insert their own profile" 
+    ON public.profiles FOR INSERT 
+    WITH CHECK (auth.uid() = id);
 
 CREATE POLICY "Allow users to update their own profile" 
     ON public.profiles FOR UPDATE 
