@@ -5,8 +5,6 @@ import { Link } from 'wouter';
 
 export function Header() {
   const [isOpen, setIsOpen] = useState(false);
-  const [showPartnerInfo, setShowPartnerInfo] = useState(false);
-  const [showMarketInfo, setShowMarketInfo] = useState(false);
 
   return (
     <>
@@ -109,7 +107,7 @@ export function Header() {
                   initial={{ x: 20, opacity: 0 }}
                   animate={{ x: 0, opacity: 1 }}
                   transition={{ delay: 0.25, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex flex-col items-center gap-1.5 mb-6"
+                  className="flex flex-col items-center gap-1.5"
                 >
                   <button
                     onClick={() => {
@@ -121,119 +119,9 @@ export function Header() {
                     Uygulamayı Yükle
                   </button>
                 </motion.div>
-
-                {/* Partner Ol Action */}
-                <motion.div
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.3, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex flex-col items-center mb-5"
-                >
-                  <button
-                    onClick={() => setShowPartnerInfo(true)}
-                    className="text-foreground hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-colors uppercase cursor-pointer"
-                  >
-                    Partner Ol
-                  </button>
-                </motion.div>
-
-                {/* UĞRA MARKET Action */}
-                <motion.div
-                  initial={{ x: 20, opacity: 0 }}
-                  animate={{ x: 0, opacity: 1 }}
-                  transition={{ delay: 0.35, duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
-                  className="flex flex-col items-center mb-5"
-                >
-                  <button
-                    onClick={() => setShowMarketInfo(true)}
-                    className="text-foreground hover:text-[#FF7A00] text-sm font-semibold tracking-wider transition-colors uppercase cursor-pointer"
-                  >
-                    UĞRA MARKET
-                  </button>
-                </motion.div>
               </div>
             </motion.div>
           </>
-        )}
-      </AnimatePresence>
-
-      {/* Partner Info Card Popup */}
-      <AnimatePresence>
-        {showPartnerInfo && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.95, y: 15, opacity: 0 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-card border border-border max-w-md w-full rounded-2xl p-6 md:p-8 text-center shadow-2xl relative overflow-hidden"
-            >
-              {/* Subtle background gradient overlay */}
-              <div className="absolute -top-12 -left-12 w-40 h-40 bg-[#FF7A00]/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-[#FF7A00]/5 rounded-full blur-3xl pointer-events-none" />
-
-              <h3 className="text-xl font-bold text-foreground mb-4 relative z-10 select-none">
-                Partner Programı
-              </h3>
-              
-              <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-6 select-none relative z-10">
-                UĞRA Partner Programı çok yakında yayında.<br />
-                Mağazanı sisteme ekleyerek daha fazla müşteriye ulaşabileceksin.
-              </p>
-
-              <button
-                onClick={() => setShowPartnerInfo(false)}
-                className="relative z-10 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white bg-[#FF7A00] hover:bg-[#E06B00] active:scale-95 transition-all rounded-lg shadow-lg shadow-[#FF7A00]/20 cursor-pointer"
-              >
-                Kapat
-              </button>
-            </motion.div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {/* UĞRA Market Info Card Popup */}
-      <AnimatePresence>
-        {showMarketInfo && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
-          >
-            <motion.div
-              initial={{ scale: 0.95, y: 15, opacity: 0 }}
-              animate={{ scale: 1, y: 0, opacity: 1 }}
-              exit={{ scale: 0.95, y: 15, opacity: 0 }}
-              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-              className="bg-card border border-border max-w-md w-full rounded-2xl p-6 md:p-8 text-center shadow-2xl relative overflow-hidden"
-            >
-              {/* Subtle background gradient overlay */}
-              <div className="absolute -top-12 -left-12 w-40 h-40 bg-[#FF7A00]/10 rounded-full blur-3xl pointer-events-none" />
-              <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-[#FF7A00]/5 rounded-full blur-3xl pointer-events-none" />
-
-              <h3 className="text-xl font-bold text-foreground mb-4 relative z-10 select-none">
-                UĞRA Market
-              </h3>
-              
-              <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-6 select-none relative z-10">
-                UĞRA Market çok yakında sizlerle!<br />
-                Kendi güvencemiz altında satışa sunulacak tüm orijinal ürünlerimize doğrudan bu platformdan ulaşıp güvenle satın alabileceksiniz.
-              </p>
-
-              <button
-                onClick={() => setShowMarketInfo(false)}
-                className="relative z-10 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white bg-[#FF7A00] hover:bg-[#E06B00] active:scale-95 transition-all rounded-lg shadow-lg shadow-[#FF7A00]/20 cursor-pointer"
-              >
-                Kapat
-              </button>
-            </motion.div>
-          </motion.div>
         )}
       </AnimatePresence>
     </>

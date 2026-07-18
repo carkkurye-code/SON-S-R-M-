@@ -123,8 +123,10 @@ function ServiceAreaPill() {
 }
 
 export function Hero() {
-  const [isMotorcycleSelected, setIsMotorcycleSelected] = useState(false);
-  const [isBicycleHovered, setIsBicycleHovered] = useState(false);
+  const [isPartnerHovered, setIsPartnerHovered] = useState(false);
+  const [isMarketHovered, setIsMarketHovered] = useState(false);
+  const [showPartnerModal, setShowPartnerModal] = useState(false);
+  const [showMarketModal, setShowMarketModal] = useState(false);
 
   return (
     <section className="min-h-[100dvh] pt-32 pb-16 flex flex-col justify-center relative overflow-hidden">
@@ -187,61 +189,64 @@ export function Hero() {
             transition={{ duration: 1, delay: 0.4, ease: "easeOut" }}
             className="absolute inset-0 flex flex-col justify-center items-center gap-6"
           >
-            {/* Motosiklet Card */}
+            {/* Uğra Market Card */}
             <InteractiveCard 
               animateOnScroll={false}
               active={true}
               hoverBorderColor="rgba(235, 104, 33, 0.4)"
               hoverShadow="0 30px 60px -15px rgba(235, 104, 33, 0.25), inset 0 1px 0 0 rgba(255,255,255,0.15)"
-              onClick={() => setIsMotorcycleSelected(prev => !prev)}
+              onMouseEnter={() => setIsMarketHovered(true)}
+              onMouseLeave={() => setIsMarketHovered(false)}
+              onClick={() => setShowMarketModal(true)}
               className="w-full glass-panel rounded-[2rem] p-6 flex justify-between items-center z-30 shadow-[0_20px_40px_rgba(0,0,0,0.3)] bg-gradient-to-br from-white/[0.08] to-transparent border border-white/10 cursor-pointer transition-all duration-500 relative overflow-hidden group"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-primary/10 blur-3xl rounded-full pointer-events-none group-hover:bg-primary/20 transition-colors duration-700" />
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="text-4xl group-hover:scale-110 transition-transform duration-300">🛵</div>
-                <div className="font-bold text-xl tracking-wide text-foreground">Motosiklet</div>
+              <div className="flex items-center gap-3 relative z-10">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A00] flex-shrink-0 animate-pulse" />
+                <div className="font-bold text-xl tracking-wide text-foreground">UĞRA MARKET</div>
               </div>
               <div className="relative h-7 flex items-center justify-end z-10">
                 <AnimatePresence mode="wait">
-                  {isMotorcycleSelected && (
+                  {isMarketHovered && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8, x: 10 }}
                       animate={{ opacity: 1, scale: 1, x: 0 }}
                       exit={{ opacity: 0, scale: 0.8, x: 10 }}
                       transition={{ duration: 0.2 }}
-                      className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30"
+                      className="px-3 py-1 rounded-full bg-[#FF7A00]/20 text-[#FF7A00] text-xs font-bold uppercase tracking-wider border border-[#FF7A00]/30"
                     >
-                      Aktif
+                      Çok Yakında
                     </motion.div>
                   )}
                 </AnimatePresence>
               </div>
             </InteractiveCard>
  
-            {/* Bisiklet Card */}
+            {/* Uğra Partner Card */}
             <InteractiveCard 
               animateOnScroll={false}
               active={true}
               hoverBorderColor="rgba(235, 104, 33, 0.3)"
               hoverShadow="0 30px 60px -15px rgba(235, 104, 33, 0.15)"
-              onMouseEnter={() => setIsBicycleHovered(true)}
-              onMouseLeave={() => setIsBicycleHovered(false)}
+              onMouseEnter={() => setIsPartnerHovered(true)}
+              onMouseLeave={() => setIsPartnerHovered(false)}
+              onClick={() => setShowPartnerModal(true)}
               className="w-[95%] glass-panel rounded-[2rem] p-6 flex justify-between items-center z-20 opacity-80 border border-white/5 cursor-pointer transition-all duration-500 relative overflow-hidden group"
             >
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/5 blur-3xl rounded-full pointer-events-none" />
-              <div className="flex items-center gap-4 relative z-10">
-                <div className="text-3xl grayscale opacity-70 group-hover:grayscale-0 group-hover:opacity-100 group-hover:scale-110 transition-all duration-300">🚲</div>
-                <div className="font-semibold text-lg text-muted-foreground group-hover:text-foreground transition-colors duration-300">Bisiklet</div>
+              <div className="flex items-center gap-3 relative z-10">
+                <span className="w-2.5 h-2.5 rounded-full bg-[#FF7A00]/70 group-hover:bg-[#FF7A00] flex-shrink-0 transition-colors duration-300" />
+                <div className="font-semibold text-lg text-muted-foreground group-hover:text-foreground transition-colors duration-300">UĞRA PARTNER</div>
               </div>
               <div className="relative h-7 flex items-center justify-end z-10">
                 <AnimatePresence mode="wait">
-                  {isBicycleHovered && (
+                  {isPartnerHovered && (
                     <motion.div
                       initial={{ opacity: 0, scale: 0.8, x: 10 }}
                       animate={{ opacity: 1, scale: 1, x: 0 }}
                       exit={{ opacity: 0, scale: 0.8, x: 10 }}
                       transition={{ duration: 0.2 }}
-                      className="px-3 py-1 rounded-full bg-primary/20 text-primary text-xs font-bold uppercase tracking-wider border border-primary/30"
+                      className="px-3 py-1 rounded-full bg-[#FF7A00]/20 text-[#FF7A00] text-xs font-bold uppercase tracking-wider border border-[#FF7A00]/30"
                     >
                       Çok Yakında
                     </motion.div>
@@ -253,6 +258,90 @@ export function Hero() {
         </div>
  
       </div>
+
+      {/* Hero Partner Modal */}
+      <AnimatePresence>
+        {showPartnerModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-card border border-border max-w-md w-full rounded-2xl p-6 md:p-8 text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute -top-12 -left-12 w-40 h-40 bg-[#FF7A00]/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-[#FF7A00]/5 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex justify-center mb-4">
+                <span className="w-3 h-3 rounded-full bg-[#FF7A00] animate-pulse" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-4 relative z-10 select-none">
+                Partner Programı
+              </h3>
+              
+              <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-6 select-none relative z-10">
+                UĞRA Partner Programı çok yakında yayında.<br />
+                Mağazanı sisteme ekleyerek daha fazla müşteriye ulaşabileceksin.
+              </p>
+
+              <button
+                onClick={() => setShowPartnerModal(false)}
+                className="relative z-10 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white bg-[#FF7A00] hover:bg-[#E06B00] active:scale-95 transition-all rounded-lg shadow-lg shadow-[#FF7A00]/20 cursor-pointer"
+              >
+                Kapat
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* Hero Market Modal */}
+      <AnimatePresence>
+        {showMarketModal && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 z-[110] bg-black/80 backdrop-blur-md flex items-center justify-center p-6"
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 15, opacity: 0 }}
+              animate={{ scale: 1, y: 0, opacity: 1 }}
+              exit={{ scale: 0.95, y: 15, opacity: 0 }}
+              transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+              className="bg-card border border-border max-w-md w-full rounded-2xl p-6 md:p-8 text-center shadow-2xl relative overflow-hidden"
+            >
+              <div className="absolute -top-12 -left-12 w-40 h-40 bg-[#FF7A00]/10 rounded-full blur-3xl pointer-events-none" />
+              <div className="absolute -bottom-12 -right-12 w-40 h-40 bg-[#FF7A00]/5 rounded-full blur-3xl pointer-events-none" />
+
+              <div className="flex justify-center mb-4">
+                <span className="w-3 h-3 rounded-full bg-[#FF7A00] animate-pulse" />
+              </div>
+              <h3 className="text-xl font-bold text-foreground mb-4 relative z-10 select-none">
+                UĞRA Market
+              </h3>
+              
+              <p className="text-sm md:text-base text-muted-foreground leading-relaxed mb-6 select-none relative z-10">
+                UĞRA Market çok yakında sizlerle!<br />
+                Kendi güvencemiz altında satışa sunulacak tüm orijinal ürünlerimize doğrudan bu platformdan ulaşıp güvenle satın alabileceksiniz.
+              </p>
+
+              <button
+                onClick={() => setShowMarketModal(false)}
+                className="relative z-10 px-6 py-2.5 text-xs font-bold uppercase tracking-widest text-white bg-[#FF7A00] hover:bg-[#E06B00] active:scale-95 transition-all rounded-lg shadow-lg shadow-[#FF7A00]/20 cursor-pointer"
+              >
+                Kapat
+              </button>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </section>
   );
 }
