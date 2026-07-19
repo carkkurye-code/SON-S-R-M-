@@ -707,15 +707,39 @@ export const db = {
   // --- ORDERS SERVICE ---
   async createOrder(order: Omit<Order, 'id' | 'created_at' | 'status'>): Promise<Order> {
     if (isSupabaseConfigured && supabase) {
+      console.log('Inserting order into database. Received payload:', order);
+      
+      if (!order.partner_id) {
+        const errorMsg = 'Sipariş oluşturulamadı: partner_id eksik veya tanımsız.';
+        console.error(errorMsg, order);
+        throw new Error(errorMsg);
+      }
+
+      const payload = {
+        partner_id: order.partner_id,
+        customer_name: order.customer_name,
+        customer_phone: order.customer_phone,
+        customer_address: order.customer_address,
+        payment_type: order.payment_type,
+        total_price: order.total_price,
+        items: order.items || [],
+        status: 'beklemede'
+      };
+
+      console.log('Sending final insert payload to Supabase "orders":', payload);
+
       const { data, error } = await supabase
         .from('orders')
-        .insert({
-          ...order,
-          status: 'beklemede'
-        })
+        .insert(payload)
         .select()
         .single();
-      if (error) throw error;
+      
+      if (error) {
+        console.error('Supabase orders insert failed! Full error object:', error);
+        throw new Error(error.message || JSON.stringify(error));
+      }
+
+      console.log('Order successfully inserted into Supabase:', data);
       return data;
     } else {
       const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);

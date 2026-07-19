@@ -84,9 +84,10 @@ export function StoreFront() {
 
       await db.createOrder(newOrderData);
       setOrderSuccess(true);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error placing order:', err);
-      alert('Sipariş iletilirken bir hata oluştu.');
+      const errMsg = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
+      alert('Sipariş iletilirken bir hata oluştu:\n' + errMsg);
     } finally {
       setOrderSubmitting(false);
     }
