@@ -421,4 +421,19 @@ EXCEPTION
     NULL;
 END $$;
 
+DROP POLICY IF EXISTS "Enable delete for partners" ON public.orders;
+
+CREATE POLICY "Enable delete for partners"
+ON public.orders
+FOR DELETE
+TO authenticated
+USING (
+  partner_id IN (
+    SELECT partner_id
+    FROM public.profiles
+    WHERE id = auth.uid()
+  )
+);
+
+
 

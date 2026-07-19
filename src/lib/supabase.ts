@@ -792,24 +792,17 @@ export const db = {
     }
   },
 
-  async updateOrderArchived(orderId: string, archived: boolean): Promise<Order> {
+  async deleteOrder(orderId: string): Promise<void> {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase
+      const { error } = await supabase
         .from('orders')
-        .update({ archived })
-        .eq('id', orderId)
-        .select()
-        .single();
+        .delete()
+        .eq('id', orderId);
       if (error) throw error;
-      return data;
     } else {
       const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);
-      const index = orders.findIndex(o => o.id === orderId);
-      if (index === -1) throw new Error('Sipariş bulunamadı.');
-      const updated = { ...orders[index], archived: !!archived };
-      orders[index] = updated;
-      setStored(LOCAL_STORAGE_KEYS.ORDERS, orders);
-      return updated;
+      const filtered = orders.filter(o => o.id !== orderId);
+      setStored(LOCAL_STORAGE_KEYS.ORDERS, filtered);
     }
   },
 
