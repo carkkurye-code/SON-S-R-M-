@@ -24,6 +24,118 @@ export function AdminPanel() {
   const [showPassword, setShowPassword] = useState(false);
   const [authLoading, setAuthLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
+  const [copiedSql, setCopiedSql] = useState(false);
+  const [showSqlGuide, setShowSqlGuide] = useState(false);
+
+  const adminSqlScript = `-- 1. Pgcrypto eklentisini aktifleştirin
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+-- 2. admin@ugra.app kullanıcısını auth.users ve public tablolarına güvenli bir şekilde ekleyin
+DO $$
+DECLARE
+  v_user_id UUID := 'd0a0b0c0-d0e0-f0a0-b0c0-d0e0f0a0b0c0';
+  v_encrypted_password TEXT;
+BEGIN
+  -- 'gokougra123' şifresi için bcrypt hash üret
+  v_encrypted_password := extensions.crypt('gokougra123', extensions.gen_salt('bf', 10));
+
+  -- Çakışmaları önlemek için eski kayıtları temizle
+  DELETE FROM public.profiles WHERE id = v_user_id OR id IN (SELECT id FROM auth.users WHERE email = 'admin@ugra.app');
+  DELETE FROM public.partners WHERE id = v_user_id OR id IN (SELECT id FROM auth.users WHERE email = 'admin@ugra.app');
+  DELETE FROM auth.identities WHERE user_id = v_user_id OR user_id IN (SELECT id FROM auth.users WHERE email = 'admin@ugra.app');
+  DELETE FROM auth.users WHERE id = v_user_id OR email = 'admin@ugra.app';
+
+  -- auth.users tablosuna admin kullanıcısını ekle
+  INSERT INTO auth.users (
+    instance_id,
+    id,
+    aud,
+    role,
+    email,
+    encrypted_password,
+    email_confirmed_at,
+    recovery_sent_at,
+    last_sign_in_at,
+    raw_app_meta_data,
+    raw_user_meta_data,
+    created_at,
+    updated_at,
+    confirmation_token,
+    email_change,
+    email_change_token_new,
+    recovery_token,
+    is_super_admin
+  ) VALUES (
+    '00000000-0000-0000-0000-000000000000',
+    v_user_id,
+    'authenticated',
+    'authenticated',
+    'admin@ugra.app',
+    v_encrypted_password,
+    now(),
+    now(),
+    now(),
+    '{"provider": "email", "providers": ["email"]}'::jsonb,
+    '{"business_name": "UĞRA Yönetim", "is_admin": true, "slug": "admin"}'::jsonb,
+    now(),
+    now(),
+    '',
+    '',
+    '',
+    '',
+    false
+  );
+
+  -- E-posta kimliğini auth.identities tablosuna bağla
+  IF EXISTS (
+    SELECT 1 
+    FROM information_schema.columns 
+    WHERE table_schema = 'auth' AND table_name = 'identities' AND column_name = 'provider_id'
+  ) THEN
+    EXECUTE 'INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, provider_id) VALUES ($1, $1, $2, $3, now(), now(), now(), $4)'
+    USING v_user_id::text, json_build_object('sub', v_user_id, 'email', 'admin@ugra.app')::jsonb, 'email', 'admin@ugra.app';
+  ELSE
+    EXECUTE 'INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES ($1, $1, $2, $3, now(), now(), now())'
+    USING v_user_id::text, json_build_object('sub', v_user_id, 'email', 'admin@ugra.app')::jsonb, 'email';
+  END IF;
+
+  -- public.partners ve public.profiles kayıtlarını doğrudan ekle/güncelle
+  INSERT INTO public.partners (id, slug, business_name, active, status)
+  VALUES (v_user_id, 'admin', 'UĞRA Yönetim', true, 'approved')
+  ON CONFLICT (id) DO UPDATE SET active = true, status = 'approved';
+
+  INSERT INTO public.profiles (id, partner_id, role, is_admin)
+  VALUES (v_user_id, v_user_id, 'admin', true)
+  ON CONFLICT (id) DO UPDATE SET role = 'admin', is_admin = true;
+
+  -- Recursion-free RLS Politikalarını Tanımla
+  DROP POLICY IF EXISTS "Allow admins to manage all profiles" ON public.profiles;
+  CREATE POLICY "Allow admins to manage all profiles"
+      ON public.profiles FOR ALL
+      USING (((auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean = true OR auth.jwt() ->> 'email' = 'admin@ugra.app'));
+
+  DROP POLICY IF EXISTS "Allow admins to manage all partners" ON public.partners;
+  CREATE POLICY "Allow admins to manage all partners"
+      ON public.partners FOR ALL
+      USING (((auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean = true OR auth.jwt() ->> 'email' = 'admin@ugra.app'));
+
+  DROP POLICY IF EXISTS "Allow admins to manage all products" ON public.products;
+  CREATE POLICY "Allow admins to manage all products"
+      ON public.products FOR ALL
+      USING (((auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean = true OR auth.jwt() ->> 'email' = 'admin@ugra.app'));
+
+  DROP POLICY IF EXISTS "Allow admins to manage all orders" ON public.orders;
+  CREATE POLICY "Allow admins to manage all orders"
+      ON public.orders FOR ALL
+      USING (((auth.jwt() -> 'user_metadata' ->> 'is_admin')::boolean = true OR auth.jwt() ->> 'email' = 'admin@ugra.app'));
+
+END $$;`;
+
+  const copySqlToClipboard = () => {
+    navigator.clipboard.writeText(adminSqlScript);
+    setCopiedSql(true);
+    setTimeout(() => setCopiedSql(false), 2000);
+  };
 
   // Data States
   const [partners, setPartners] = useState<Partner[]>([]);
@@ -397,6 +509,70 @@ export function AdminPanel() {
                 )}
               </button>
             </form>
+
+            {isSupabaseConfigured && (
+              <div className="mt-8 pt-6 border-t border-white/5 space-y-4">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Supabase Auth Kurulumu</span>
+                  <button
+                    type="button"
+                    onClick={() => setShowSqlGuide(!showSqlGuide)}
+                    className="text-xs text-primary hover:underline cursor-pointer bg-transparent border-0"
+                  >
+                    {showSqlGuide ? 'Rehberi Gizle' : 'Nasıl Kurulur?'}
+                  </button>
+                </div>
+
+                <div className="bg-primary/5 border border-primary/10 rounded-2xl p-4 space-y-2.5">
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Eğer ilk defa giriş yapıyorsanız ve <strong>"Invalid login credentials"</strong> hatası alıyorsanız, Supabase Authentication veritabanında <strong>admin@ugra.app</strong> kullanıcısının oluşturulması gerekir.
+                  </p>
+                  
+                  <button
+                    type="button"
+                    onClick={copySqlToClipboard}
+                    className="w-full bg-white/[0.03] hover:bg-white/[0.08] text-foreground text-xs font-semibold py-2.5 rounded-xl transition-all flex items-center justify-center gap-2 border border-white/5 cursor-pointer"
+                  >
+                    {copiedSql ? (
+                      <>
+                        <Check className="w-3.5 h-3.5 text-emerald-400" />
+                        <span className="text-emerald-400 font-bold">SQL Kodu Kopyalandı!</span>
+                      </>
+                    ) : (
+                      <>
+                        <RefreshCw className="w-3.5 h-3.5 text-primary" />
+                        <span>SQL Kurulum Kodunu Kopyala</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {showSqlGuide && (
+                  <div className="space-y-3 bg-[#0A0A0B] border border-white/5 rounded-2xl p-4 text-xs text-muted-foreground leading-relaxed">
+                    <h4 className="font-bold text-foreground text-sm flex items-center gap-1.5">
+                      <Shield className="w-4 h-4 text-primary" />
+                      Kurulum Adımları:
+                    </h4>
+                    <ol className="list-decimal list-inside space-y-1.5 pl-1">
+                      <li>
+                        <a href="https://supabase.com/dashboard" target="_blank" rel="noreferrer" className="text-primary hover:underline inline-flex items-center gap-0.5 font-semibold">
+                          Supabase Dashboard <ExternalLink className="w-3 h-3 inline" />
+                        </a>
+                        'a gidin.
+                      </li>
+                      <li>Sol menüden <strong className="text-foreground font-extrabold">"SQL Editor"</strong> sekmesine tıklayın.</li>
+                      <li><strong className="text-foreground font-extrabold">"New query"</strong> butonuna basın.</li>
+                      <li>Yukarıda kopyaladığınız SQL kodunu editöre yapıştırın.</li>
+                      <li>Sağ alttaki <strong className="text-foreground font-extrabold">"Run"</strong> butonuna basarak kodu çalıştırın.</li>
+                      <li>Kayıt başarıyla oluşturulduğunda bu ekrana dönüp giriş yapabilirsiniz.</li>
+                    </ol>
+                    <div className="pt-2 border-t border-white/5 text-[10px] font-mono text-muted-foreground/60 leading-normal">
+                      * Bu SQL scripti <strong className="text-foreground">admin@ugra.app</strong> kullanıcısını şifresi <strong className="text-foreground">gokougra123</strong> olacak şekilde auth.users tablonuza doğrudan ve güvenli bir şekilde ekler.
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
 
