@@ -177,7 +177,7 @@ export function StoreFront() {
   }
 
   return (
-    <div className="min-h-screen bg-[#0A0A0B] text-foreground font-sans antialiased pb-12">
+    <div className="min-h-screen bg-[#0A0A0B] text-foreground font-sans antialiased pb-[140px]">
       {/* Dynamic Header Banner / Branding */}
       <header className="border-b border-white/5 bg-[#111113]/40 backdrop-blur-md sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 py-4 flex items-center justify-between">
@@ -323,19 +323,23 @@ export function StoreFront() {
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 50, opacity: 0 }}
             transition={{ duration: 0.3 }}
-            className="fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto z-40 p-4 md:p-0"
+            className="fixed bottom-4 left-4 right-4 z-40 max-w-[560px] mx-auto"
           >
-            <div className="bg-[#111113] border border-white/10 md:rounded-2xl shadow-2xl p-4 md:w-96 flex items-center justify-between gap-4 w-full rounded-xl">
+            <div className="bg-[#111113]/95 border border-white/10 rounded-3xl shadow-2xl px-4 md:px-5 flex items-center justify-between gap-4 h-[76px] backdrop-blur-lg">
               <div className="flex items-center gap-3">
-                <div className="relative w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0">
+                <div className="relative w-11 h-11 bg-primary/10 border border-primary/20 rounded-2xl flex items-center justify-center text-primary shrink-0">
                   <ShoppingCart className="w-5 h-5" />
-                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#111113]">
+                  <span className="absolute -top-1 -right-1 bg-primary text-primary-foreground font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#111113]">
                     {cartItemCount}
                   </span>
                 </div>
                 <div>
-                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Sipariş Toplamı</div>
-                  <div className="text-base font-extrabold text-white">{cartTotal.toLocaleString('tr-TR')} ₺</div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider leading-none mb-1">
+                    {cartItemCount} Ürün
+                  </div>
+                  <div className="text-base font-extrabold text-white leading-none">
+                    {cartTotal.toLocaleString('tr-TR')} ₺
+                  </div>
                 </div>
               </div>
               <button
@@ -343,7 +347,7 @@ export function StoreFront() {
                   setIsCheckoutOpen(true);
                   setOrderSuccess(false);
                 }}
-                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs uppercase font-extrabold tracking-wider px-5 py-3 rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer border-0"
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs uppercase font-extrabold tracking-wider px-5 py-3 h-11 rounded-2xl flex items-center gap-1 transition-all shadow-md active:scale-98 cursor-pointer border-0 shrink-0"
               >
                 Siparişi Tamamla
                 <ChevronRight className="w-4 h-4" />
