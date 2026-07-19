@@ -560,13 +560,37 @@ export const db = {
 
   async getPartnerById(id: string): Promise<Partner | null> {
     if (isSupabaseConfigured && supabase) {
+      // 1. Direct fetch from partners table
       const { data, error } = await supabase
         .from('partners')
         .select('*')
         .eq('id', id)
         .maybeSingle();
-      if (error) return null;
-      return data;
+      
+      if (!error && data) return data;
+
+      // 2. Fallback: fetch from profiles to find partner_id
+      try {
+        const { data: profileData, error: profileError } = await supabase
+          .from('profiles')
+          .select('partner_id')
+          .eq('id', id)
+          .maybeSingle();
+
+        if (!profileError && profileData?.partner_id) {
+          const { data: partnerData, error: partnerError } = await supabase
+            .from('partners')
+            .select('*')
+            .eq('id', profileData.partner_id)
+            .maybeSingle();
+          
+          if (!partnerError && partnerData) return partnerData;
+        }
+      } catch (err) {
+        console.error('Error in getPartnerById profile fallback:', err);
+      }
+
+      return null;
     } else {
       const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
       return partners.find(p => p.id === id) || null;

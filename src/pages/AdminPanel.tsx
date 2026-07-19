@@ -137,6 +137,84 @@ END $$;`;
     setTimeout(() => setCopiedSql(false), 2000);
   };
 
+  const [copiedPartnerSqlId, setCopiedPartnerSqlId] = useState<string | null>(null);
+
+  const copyPartnerSql = (p: Partner) => {
+    const pEmail = `${p.slug}@ugra.app`;
+    const sql = `-- 1. Pgcrypto eklentisini aktifleştirin
+CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
+
+-- 2. Partner kullanıcısını auth.users ve public tablolarına güvenli bir şekilde ekleyin / ilişkilendirin
+DO $$
+DECLARE
+  v_user_id UUID := 'd1a1b1c1-d1e1-f1a1-b1c1-d1e1f1a1b1c1';
+  v_partner_id UUID;
+  v_encrypted_password TEXT;
+  v_email TEXT := '${pEmail}';
+  v_business_name TEXT := '${p.business_name.replace(/'/g, "''")}';
+  v_slug TEXT := '${p.slug}';
+BEGIN
+  -- 'gokougra123' şifresi için bcrypt hash üret
+  v_encrypted_password := extensions.crypt('gokougra123', extensions.gen_salt('bf', 10));
+
+  -- Eğer zaten bu e-posta ile bir auth kullanıcısı varsa onun ID'sini al
+  SELECT id INTO v_user_id FROM auth.users WHERE email = v_email;
+
+  -- Eğer auth kullanıcısı yoksa yeni bir tane oluştur
+  IF v_user_id IS NULL THEN
+    v_user_id := uuid_generate_v4();
+    
+    INSERT INTO auth.users (
+      instance_id, id, aud, role, email, encrypted_password, email_confirmed_at,
+      recovery_sent_at, last_sign_in_at, raw_app_meta_data, raw_user_meta_data,
+      created_at, updated_at, confirmation_token, email_change, email_change_token_new,
+      recovery_token, is_super_admin
+    ) VALUES (
+      '00000000-0000-0000-0000-000000000000', v_user_id, 'authenticated', 'authenticated',
+      v_email, v_encrypted_password, now(), now(), now(),
+      '{"provider": "email", "providers": ["email"]}'::jsonb,
+      jsonb_build_object('business_name', v_business_name, 'slug', v_slug, 'role', 'owner'),
+      now(), now(), '', '', '', '', false
+    );
+
+    -- E-posta kimliğini auth.identities tablosuna bağla
+    IF EXISTS (
+      SELECT 1 FROM information_schema.columns 
+      WHERE table_schema = 'auth' AND table_name = 'identities' AND column_name = 'provider_id'
+    ) THEN
+      EXECUTE 'INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at, provider_id) VALUES ($1, $1, $2, $3, now(), now(), now(), $4)'
+      USING v_user_id::text, json_build_object('sub', v_user_id, 'email', v_email)::jsonb, 'email', v_email;
+    ELSE
+      EXECUTE 'INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES ($1, $1, $2, $3, now(), now(), now())'
+      USING v_user_id::text, json_build_object('sub', v_user_id, 'email', v_email)::jsonb, 'email';
+    END IF;
+  END IF;
+
+  -- Mevcut partners tablosundan slug ile kaydı bul
+  SELECT id INTO v_partner_id FROM public.partners WHERE slug = v_slug;
+
+  -- Eğer partners kaydı yoksa oluştur
+  IF v_partner_id IS NULL THEN
+    v_partner_id := v_user_id;
+    INSERT INTO public.partners (id, slug, business_name, active, status)
+    VALUES (v_partner_id, v_slug, v_business_name, true, 'approved');
+  ELSE
+    -- Varsa onaylı ve aktif yap
+    UPDATE public.partners SET active = true, status = 'approved' WHERE id = v_partner_id;
+  END IF;
+
+  -- Profiles kaydını oluştur veya güncelle
+  INSERT INTO public.profiles (id, partner_id, role, is_admin)
+  VALUES (v_user_id, v_partner_id, 'owner', false)
+  ON CONFLICT (id) DO UPDATE SET partner_id = v_partner_id, role = 'owner', is_admin = false;
+
+END $$;`;
+
+    navigator.clipboard.writeText(sql);
+    setCopiedPartnerSqlId(p.id);
+    setTimeout(() => setCopiedPartnerSqlId(null), 2000);
+  };
+
   // Data States
   const [partners, setPartners] = useState<Partner[]>([]);
   const [products, setProducts] = useState<(Product & { partner_name?: string })[]>([]);
@@ -1020,6 +1098,23 @@ END $$;`;
                       Kategori: {p.category || 'Belirtilmemiş'}
                     </span>
                     <div className="flex items-center gap-2">
+                      <button 
+                        onClick={() => copyPartnerSql(p)}
+                        className="px-2.5 py-1.5 rounded-xl bg-primary/10 border border-primary/20 hover:bg-primary/20 text-primary text-xs font-semibold flex items-center gap-1.5 transition-all cursor-pointer"
+                        title="Supabase Auth Kurulum SQL Kodunu Kopyala"
+                      >
+                        {copiedPartnerSqlId === p.id ? (
+                          <>
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
+                            <span className="text-emerald-400 font-bold">Kopyalandı!</span>
+                          </>
+                        ) : (
+                          <>
+                            <Shield className="w-3.5 h-3.5" />
+                            <span>Auth SQL</span>
+                          </>
+                        )}
+                      </button>
                       <button 
                         onClick={() => setEditingPartner(p)}
                         className="p-2 rounded-xl bg-white/[0.02] border border-white/5 hover:bg-white/[0.08] text-muted-foreground hover:text-foreground transition-colors cursor-pointer"
