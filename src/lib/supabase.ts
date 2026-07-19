@@ -310,47 +310,15 @@ export const db = {
   // --- AUTH SERVICES ---
   async signIn(email: string, password: string) {
     if (isSupabaseConfigured && supabase) {
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error) throw error;
-      
-      const user = data.user;
-      if (user) {
-        // Fetch profile
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, is_admin, partner_id')
-          .eq('id', user.id)
-          .maybeSingle();
-        
-        const isAdmin = profile?.role === 'admin' || profile?.is_admin === true || email === 'admin@ugra.app';
-        if (!isAdmin) {
-          // If not admin, check partner status
-          const partnerId = profile?.partner_id || user.id;
-          const { data: partner } = await supabase
-            .from('partners')
-            .select('status, active')
-            .eq('id', partnerId)
-            .maybeSingle();
-          
-          const active = partner?.active;
-          const status = partner?.status || 'pending';
-          const isApproved = active === true && (status === 'approved' || status === 'active');
-          
-          // GÜVENLİK/GEÇİCİ ONAY KONTROLÜ GEÇİCİ OLARAK BYPASS EDİLDİ (TEST AMAÇLI)
-          console.log('Partner status check bypassed for testing:', { active, status, isApproved });
-          /*
-          if (!isApproved) {
-            await supabase.auth.signOut();
-            if (status === 'rejected') {
-              throw new Error('Başvurunuz reddedilmiştir. Lütfen destek ekibi ile iletişime geçin.');
-            } else {
-              throw new Error('Hesabınız henüz onaylanmadı. Lütfen yönetici onayını bekleyiniz.');
-            }
-          }
-          */
+      try {
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (error || !data?.user) {
+          throw new Error('Invalid login credentials');
         }
+        return data;
+      } catch (err: any) {
+        throw new Error('Invalid login credentials');
       }
-      return data;
     } else {
       // Virtual Login
       const lowercaseEmail = email.toLowerCase().trim();

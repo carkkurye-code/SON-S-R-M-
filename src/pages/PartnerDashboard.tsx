@@ -118,6 +118,7 @@ export function PartnerDashboard() {
         }
         await db.signIn(email, password);
         await initDashboard();
+        setLocation('/partner/dashboard');
       }
     } catch (err: any) {
       setAuthError(err.message || 'Bir hata oluştu. Lütfen bilgilerinizi kontrol edin.');
