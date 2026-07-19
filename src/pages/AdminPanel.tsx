@@ -4,9 +4,9 @@ import {
   Building, Users, ShoppingBag, Package, Settings, LogOut, Check, X, 
   Shield, RefreshCw, BarChart3, AlertCircle, ArrowLeft, Loader2, Sparkles, 
   Plus, Edit, Trash2, Mail, ExternalLink, HelpCircle, Eye, EyeOff, Lock,
-  Phone, MapPin, Search, Calendar, Landmark, Info
+  Phone, MapPin, Search, Calendar, Landmark, Info, ClipboardList
 } from 'lucide-react';
-import { db, isSupabaseConfigured, Partner, Product, Order, SupportTicket } from '@/lib/supabase';
+import { db, isSupabaseConfigured, Partner, Product, Order, SupportTicket, AuditLog } from '@/lib/supabase';
 import { 
   ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, 
   PieChart, Pie, Cell, BarChart, Bar 
@@ -222,12 +222,22 @@ END $$;`;
   const [orders, setOrders] = useState<(Order & { partner_name?: string })[]>([]);
   const [customers, setCustomers] = useState<any[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([]);
 
   // Search & Filters
   const [partnerSearch, setPartnerSearch] = useState('');
   const [productSearch, setProductSearch] = useState('');
   const [orderSearch, setOrderSearch] = useState('');
   const [customerSearch, setCustomerSearch] = useState('');
+  
+  // Audit Logs Filters
+  const [selectedPartnerFilter, setSelectedPartnerFilter] = useState('');
+  const [selectedActionFilter, setSelectedActionFilter] = useState('');
+  const [startDateFilter, setStartDateFilter] = useState('');
+  const [endDateFilter, setEndDateFilter] = useState('');
+  const [userIdFilter, setUserIdFilter] = useState('');
+  const [orderNoFilter, setOrderNoFilter] = useState('');
+  const [selectedLogDetails, setSelectedLogDetails] = useState<any | null>(null);
 
   // Modals / Edit Forms State
   const [editingPartner, setEditingPartner] = useState<Partner | null>(null);
@@ -289,6 +299,9 @@ END $$;`;
 
       const tkts = await db.getSupportTickets();
       setSupportTickets(tkts);
+
+      const logs = await db.getAuditLogs();
+      setAuditLogs(logs);
     } catch (err) {
       console.error('Error loading admin data:', err);
     } finally {
@@ -340,8 +353,25 @@ END $$;`;
   // --- PARTNER ACTIONS ---
   const handleApprovePartner = async (partnerId: string) => {
     try {
+      const partner = partners.find(p => p.id === partnerId);
       await db.adminApprovePartner(partnerId);
       setPartners(partners.map(p => p.id === partnerId ? { ...p, status: 'approved', active: true } : p));
+
+      await db.logAction({
+        partner_id: partnerId,
+        partner_name: partner?.business_name,
+        user_id: 'admin_id',
+        action: 'PARTNER_STATUS_CHANGED',
+        entity_type: 'partner',
+        entity_id: partnerId,
+        details: {
+          business_name: partner?.business_name,
+          old_status: partner?.status,
+          new_status: 'approved',
+          active: true,
+          updated_by: 'admin'
+        }
+      });
     } catch (err) {
       console.error('Error approving partner:', err);
     }
@@ -349,8 +379,25 @@ END $$;`;
 
   const handleRejectPartner = async (partnerId: string) => {
     try {
+      const partner = partners.find(p => p.id === partnerId);
       await db.adminRejectPartner(partnerId);
       setPartners(partners.map(p => p.id === partnerId ? { ...p, status: 'rejected', active: false } : p));
+
+      await db.logAction({
+        partner_id: partnerId,
+        partner_name: partner?.business_name,
+        user_id: 'admin_id',
+        action: 'PARTNER_STATUS_CHANGED',
+        entity_type: 'partner',
+        entity_id: partnerId,
+        details: {
+          business_name: partner?.business_name,
+          old_status: partner?.status,
+          new_status: 'rejected',
+          active: false,
+          updated_by: 'admin'
+        }
+      });
     } catch (err) {
       console.error('Error rejecting partner:', err);
     }
@@ -382,6 +429,21 @@ END $$;`;
         logo: '',
         active: true
       });
+
+      await db.logAction({
+        partner_id: created.id,
+        partner_name: created.business_name,
+        user_id: 'admin_id',
+        action: 'PARTNER_STATUS_CHANGED',
+        entity_type: 'partner',
+        entity_id: created.id,
+        details: {
+          business_name: created.business_name,
+          status: 'approved',
+          active: true,
+          created_by: 'admin'
+        }
+      });
     } catch (err: any) {
       alert('Mağaza eklenirken hata: ' + err.message);
     } finally {
@@ -394,9 +456,30 @@ END $$;`;
     if (!editingPartner) return;
     setPartnerSaving(true);
     try {
+      const oldPartner = partners.find(p => p.id === editingPartner.id);
       const updated = await db.adminUpdatePartner(editingPartner.id, editingPartner);
       setPartners(partners.map(p => p.id === editingPartner.id ? updated : p));
       setEditingPartner(null);
+
+      const isStatusChanged = oldPartner && (oldPartner.active !== editingPartner.active || oldPartner.status !== editingPartner.status);
+      if (isStatusChanged) {
+        await db.logAction({
+          partner_id: editingPartner.id,
+          partner_name: editingPartner.business_name,
+          user_id: 'admin_id',
+          action: 'PARTNER_STATUS_CHANGED',
+          entity_type: 'partner',
+          entity_id: editingPartner.id,
+          details: {
+            business_name: editingPartner.business_name,
+            old_active: oldPartner.active,
+            new_active: editingPartner.active,
+            old_status: oldPartner.status,
+            new_status: editingPartner.status,
+            updated_by: 'admin'
+          }
+        });
+      }
     } catch (err: any) {
       alert('Güncelleme hatası: ' + err.message);
     } finally {
@@ -407,8 +490,23 @@ END $$;`;
   const handleDeletePartner = async (id: string) => {
     if (!confirm('Bu partneri silmek istediğinize emin misiniz? Tüm ürünleri ve siparişleri de silinebilir.')) return;
     try {
+      const partner = partners.find(p => p.id === id);
       await db.adminDeletePartner(id);
       setPartners(partners.filter(p => p.id !== id));
+
+      await db.logAction({
+        partner_id: id,
+        partner_name: partner?.business_name,
+        user_id: 'admin_id',
+        action: 'PARTNER_STATUS_CHANGED',
+        entity_type: 'partner',
+        entity_id: id,
+        details: {
+          business_name: partner?.business_name,
+          deleted: true,
+          deleted_by: 'admin'
+        }
+      });
     } catch (err) {
       console.error('Error deleting partner:', err);
     }
@@ -417,8 +515,25 @@ END $$;`;
   // --- ORDER STATUS ACTIONS ---
   const handleUpdateOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
+      const order = orders.find(o => o.id === orderId);
       await db.updateOrderStatus(orderId, status);
       setOrders(orders.map(o => o.id === orderId ? { ...o, status } : o));
+
+      await db.logAction({
+        partner_id: order?.partner_id,
+        partner_name: order?.partner_name,
+        user_id: 'admin_id',
+        action: 'ORDER_STATUS_CHANGED',
+        entity_type: 'order',
+        entity_id: orderId,
+        details: {
+          customer_name: order?.customer_name,
+          old_status: order?.status,
+          new_status: status,
+          total_price: order?.total_price,
+          updated_by: 'admin'
+        }
+      });
     } catch (err) {
       console.error('Error updating order status:', err);
     }
@@ -427,8 +542,23 @@ END $$;`;
   // --- TICKET ACTIONS ---
   const handleResolveTicket = async (ticketId: string, status: 'cozuldu' | 'iptal') => {
     try {
+      const ticket = supportTickets.find(t => t.id === ticketId);
       await db.updateSupportTicketStatus(ticketId, status);
       setSupportTickets(supportTickets.map(t => t.id === ticketId ? { ...t, status } : t));
+
+      await db.logAction({
+        partner_id: ticket?.partner_id,
+        partner_name: ticket?.business_name,
+        user_id: 'admin_id',
+        action: 'SUPPORT_TICKET_CLOSED',
+        entity_type: 'support_ticket',
+        entity_id: ticketId,
+        details: {
+          subject: ticket?.subject,
+          status: status,
+          closed_by: 'admin'
+        }
+      });
     } catch (err) {
       console.error('Error updating ticket status:', err);
     }
@@ -686,6 +816,93 @@ END $$;`;
     (c.stores && c.stores.toLowerCase().includes(customerSearch.toLowerCase()))
   );
 
+  const actionLabels: Record<string, string> = {
+    ORDER_STATUS_CHANGED: 'Sipariş Durumu Değiştirildi',
+    ORDER_DELETED: 'Sipariş Silindi',
+    PRODUCT_ADDED: 'Ürün Eklendi',
+    PRODUCT_UPDATED: 'Ürün Güncellendi',
+    PRODUCT_DELETED: 'Ürün Silindi',
+    PRICE_CHANGED: 'Fiyat Değiştirildi',
+    STOCK_CHANGED: 'Stok Değiştirildi',
+    WORKING_HOURS_UPDATED: 'Çalışma Saatleri Güncellendi',
+    LOGO_UPDATED: 'Logo Değiştirildi',
+    GALLERY_UPDATED: 'Galeri Güncellendi',
+    PARTNER_UPDATED: 'İşletme Bilgileri Güncellendi',
+    SUPPORT_TICKET_CREATED: 'Destek Talebi Oluşturuldu',
+    SUPPORT_TICKET_CLOSED: 'Destek Talebi Kapatıldı',
+    PARTNER_STATUS_CHANGED: 'Bayi Hesabı Pasif/Aktif'
+  };
+
+  const getLogSummary = (log: AuditLog) => {
+    const details = log.details || {};
+    switch (log.action) {
+      case 'ORDER_STATUS_CHANGED':
+        return `${details.customer_name || 'Müşteri'} siparişinin durumu "${details.old_status || '-'}" -> "${details.new_status || '-'}" yapıldı. (Tutar: ${details.total_price || 0}₺)`;
+      case 'ORDER_DELETED':
+        return `${details.customer_name || 'Müşteri'} siparişi kalıcı olarak silindi. (Tutar: ${details.total_price || 0}₺)`;
+      case 'PRODUCT_ADDED':
+        return `"${details.title || '-'}" isimli ürün eklendi. (Fiyat: ${details.price || 0}₺, Stok: ${details.stock ?? 'Sınırsız'})`;
+      case 'PRODUCT_UPDATED':
+        return `"${details.title || '-'}" isimli ürün güncellendi.`;
+      case 'PRODUCT_DELETED':
+        return `"${details.title || '-'}" isimli ürün silindi.`;
+      case 'PRICE_CHANGED':
+        return `"${details.product_title || '-'}" ürünü fiyatı değiştirildi: ${details.old_price || 0}₺ -> ${details.new_price || 0}₺`;
+      case 'STOCK_CHANGED':
+        return `"${details.product_title || '-'}" ürünü stok durumu değiştirildi: ${details.old_stock || 0} -> ${details.new_stock || 0}`;
+      case 'WORKING_HOURS_UPDATED':
+        return `Çalışma saatleri güncellendi.`;
+      case 'LOGO_UPDATED':
+        return `Mağaza logosu değiştirildi.`;
+      case 'GALLERY_UPDATED':
+        return details.type === 'image_added' ? `Galeriye yeni fotoğraf eklendi.` : `Galeriden fotoğraf silindi.`;
+      case 'PARTNER_UPDATED':
+        return `İşletme kategorisi/bilgileri güncellendi: ${details.business_name || '-'}`;
+      case 'SUPPORT_TICKET_CREATED':
+        return `Konu: "${details.subject || '-'}" olan yeni bir destek talebi açıldı.`;
+      case 'SUPPORT_TICKET_CLOSED':
+        return `"${details.subject || '-'}" destek talebi çözülerek kapatıldı.`;
+      case 'PARTNER_STATUS_CHANGED':
+        return `Bayi durumu değiştirildi. Aktif: ${details.active ? 'Evet' : 'Hayır'}. Durum: ${details.new_status || '-'}`;
+      default:
+        return JSON.stringify(details);
+    }
+  };
+
+  const filteredAuditLogs = auditLogs.filter(log => {
+    if (selectedPartnerFilter && log.partner_id !== selectedPartnerFilter) {
+      return false;
+    }
+    if (selectedActionFilter && log.action !== selectedActionFilter) {
+      return false;
+    }
+    if (userIdFilter && !log.user_id?.toLowerCase().includes(userIdFilter.toLowerCase())) {
+      return false;
+    }
+    if (orderNoFilter) {
+      const detailsStr = log.details ? JSON.stringify(log.details).toLowerCase() : '';
+      const entityIdStr = log.entity_id ? log.entity_id.toLowerCase() : '';
+      const target = orderNoFilter.toLowerCase();
+      if (!detailsStr.includes(target) && !entityIdStr.includes(target)) {
+        return false;
+      }
+    }
+    if (startDateFilter) {
+      const logTime = new Date(log.created_at || '').getTime();
+      const startTime = new Date(startDateFilter).getTime();
+      if (logTime < startTime) {
+        return false;
+      }
+    }
+    if (endDateFilter) {
+      const logTime = new Date(log.created_at || '').getTime();
+      const endTime = new Date(endDateFilter).setHours(23, 59, 59, 999);
+      if (logTime > endTime) {
+        return false;
+      }
+    }
+    return true;
+  });
 
   return (
     <div className="min-h-screen bg-[#0A0A0B] text-foreground font-sans flex flex-col md:flex-row antialiased">
@@ -738,6 +955,7 @@ END $$;`;
               { id: 'customers', label: 'Müşteriler', icon: Shield },
               { id: 'tickets', label: 'Destek Talepleri', icon: HelpCircle, badge: supportTickets.filter(t => t.status === 'acik').length },
               { id: 'reports', label: 'Raporlar', icon: BarChart3 },
+              { id: 'audit_logs', label: 'Sistem Kayıtları', icon: ClipboardList },
               { id: 'settings', label: 'Ayarlar', icon: Settings }
             ].map(item => {
               const Icon = item.icon;
@@ -1802,6 +2020,221 @@ END $$;`;
           </div>
         )}
 
+        {/* 8.5 AUDIT LOGS */}
+        {activeTab === 'audit_logs' && (
+          <div className="space-y-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h1 className="text-3xl font-extrabold tracking-tight">Sistem İşlem Geçmişi (Audit Logs)</h1>
+                <p className="text-sm text-muted-foreground">Tüm bayi ve yönetici işlemlerinin detaylı ve geriye dönük merkezi denetim kayıtları.</p>
+              </div>
+              <button
+                onClick={async () => {
+                  setLoading(true);
+                  const logs = await db.getAuditLogs();
+                  setAuditLogs(logs);
+                  setLoading(false);
+                }}
+                className="bg-white/[0.04] hover:bg-white/[0.08] text-foreground border border-white/5 rounded-xl px-4 py-2.5 text-xs font-bold flex items-center gap-2 cursor-pointer transition-all self-start sm:self-center"
+              >
+                <RefreshCw className="w-4 h-4" /> Yenile
+              </button>
+            </div>
+
+            {/* Filter Panel */}
+            <div className="bg-[#111113] border border-white/5 rounded-2xl p-5">
+              <h3 className="text-xs text-muted-foreground uppercase font-bold tracking-wider mb-4">Gelişmiş Arama ve Filtreleme</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+                
+                {/* Partner Filter */}
+                <div>
+                  <label className="block text-xs text-muted-foreground font-semibold mb-1.5">Bayi Seç</label>
+                  <select
+                    value={selectedPartnerFilter}
+                    onChange={(e) => setSelectedPartnerFilter(e.target.value)}
+                    className="w-full bg-[#1A1A1E] text-foreground border border-white/5 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all"
+                  >
+                    <option value="">Tüm Bayiler</option>
+                    {partners.map(p => (
+                      <option key={p.id} value={p.id}>{p.business_name}</option>
+                    ))}
+                  </select>
+                </div>
+
+                {/* Action Filter */}
+                <div>
+                  <label className="block text-xs text-muted-foreground font-semibold mb-1.5">İşlem Türü</label>
+                  <select
+                    value={selectedActionFilter}
+                    onChange={(e) => setSelectedActionFilter(e.target.value)}
+                    className="w-full bg-[#1A1A1E] text-foreground border border-white/5 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all"
+                  >
+                    <option value="">Tüm İşlemler</option>
+                    <option value="ORDER_STATUS_CHANGED">Sipariş Durumu Değiştirildi</option>
+                    <option value="ORDER_DELETED">Sipariş Silindi</option>
+                    <option value="PRODUCT_ADDED">Ürün Eklendi</option>
+                    <option value="PRODUCT_UPDATED">Ürün Güncellendi</option>
+                    <option value="PRODUCT_DELETED">Ürün Silindi</option>
+                    <option value="PRICE_CHANGED">Fiyat Değiştirildi</option>
+                    <option value="STOCK_CHANGED">Stok Değiştirildi</option>
+                    <option value="WORKING_HOURS_UPDATED">Çalışma Saatleri Güncellendi</option>
+                    <option value="LOGO_UPDATED">Logo Değiştirildi</option>
+                    <option value="GALLERY_UPDATED">Galeri Fotoğrafı Eklendi/Silindi</option>
+                    <option value="PARTNER_UPDATED">İşletme Bilgileri Güncellendi</option>
+                    <option value="SUPPORT_TICKET_CREATED">Destek Talebi Oluşturuldu</option>
+                    <option value="SUPPORT_TICKET_CLOSED">Destek Talebi Kapatıldı</option>
+                    <option value="PARTNER_STATUS_CHANGED">Partner Hesabı Pasif/Aktif</option>
+                  </select>
+                </div>
+
+                {/* User ID filter */}
+                <div>
+                  <label className="block text-xs text-muted-foreground font-semibold mb-1.5">Kullanıcı ID / Kod</label>
+                  <input
+                    type="text"
+                    placeholder="User UUID giriniz"
+                    value={userIdFilter}
+                    onChange={(e) => setUserIdFilter(e.target.value)}
+                    className="w-full bg-[#1A1A1E] text-foreground border border-white/5 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                  />
+                </div>
+
+                {/* Order ID Filter */}
+                <div>
+                  <label className="block text-xs text-muted-foreground font-semibold mb-1.5">Sipariş / Ürün No</label>
+                  <input
+                    type="text"
+                    placeholder="Arama yapın..."
+                    value={orderNoFilter}
+                    onChange={(e) => setOrderNoFilter(e.target.value)}
+                    className="w-full bg-[#1A1A1E] text-foreground border border-white/5 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all placeholder:text-muted-foreground/30"
+                  />
+                </div>
+
+                {/* Start Date */}
+                <div>
+                  <label className="block text-xs text-muted-foreground font-semibold mb-1.5">Başlangıç Tarihi</label>
+                  <input
+                    type="date"
+                    value={startDateFilter}
+                    onChange={(e) => setStartDateFilter(e.target.value)}
+                    className="w-full bg-[#1A1A1E] text-foreground border border-white/5 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+
+                {/* End Date */}
+                <div>
+                  <label className="block text-xs text-muted-foreground font-semibold mb-1.5">Bitiş Tarihi</label>
+                  <input
+                    type="date"
+                    value={endDateFilter}
+                    onChange={(e) => setEndDateFilter(e.target.value)}
+                    className="w-full bg-[#1A1A1E] text-foreground border border-white/5 rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-primary transition-all"
+                  />
+                </div>
+
+              </div>
+
+              {/* Reset Filter Button */}
+              {(selectedPartnerFilter || selectedActionFilter || userIdFilter || orderNoFilter || startDateFilter || endDateFilter) && (
+                <div className="flex justify-end mt-4">
+                  <button
+                    onClick={() => {
+                      setSelectedPartnerFilter('');
+                      setSelectedActionFilter('');
+                      setUserIdFilter('');
+                      setOrderNoFilter('');
+                      setStartDateFilter('');
+                      setEndDateFilter('');
+                    }}
+                    className="text-xs font-semibold text-red-400 hover:text-red-300 transition-colors bg-red-500/10 border border-red-500/20 px-3 py-1.5 rounded-lg cursor-pointer"
+                  >
+                    Filtreleri Temizle
+                  </button>
+                </div>
+              )}
+            </div>
+
+            {/* Audit Log Table */}
+            <div className="bg-[#111113] border border-white/5 rounded-2xl overflow-hidden">
+              <div className="overflow-x-auto">
+                <table className="w-full border-collapse text-left">
+                  <thead>
+                    <tr className="border-b border-white/5 text-muted-foreground text-xs uppercase font-bold tracking-wider bg-white/[0.01]">
+                      <th className="px-5 py-4">Tarih / Saat</th>
+                      <th className="px-5 py-4">Bayi / Partner</th>
+                      <th className="px-5 py-4">İşlem</th>
+                      <th className="px-5 py-4">Açıklama / Detay</th>
+                      <th className="px-5 py-4">Yapan Kullanıcı</th>
+                      <th className="px-5 py-4 text-right">Aksiyonlar</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-white/5 text-sm">
+                    {filteredAuditLogs.length === 0 ? (
+                      <tr>
+                        <td colSpan={6} className="px-5 py-12 text-center text-muted-foreground">
+                          Aradığınız kriterlere uygun sistem kaydı bulunamadı.
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredAuditLogs.map((log) => (
+                        <tr key={log.id} className="hover:bg-white/[0.01] transition-all">
+                          {/* Created At */}
+                          <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                            {new Date(log.created_at || '').toLocaleString('tr-TR')}
+                          </td>
+
+                          {/* Partner Name */}
+                          <td className="px-5 py-3.5 font-semibold text-foreground whitespace-nowrap">
+                            {log.partner_name || 'Sistem / Genel'}
+                          </td>
+
+                          {/* Action Badge */}
+                          <td className="px-5 py-3.5 whitespace-nowrap">
+                            <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                              log.action.includes('DELETED') ? 'bg-red-500/10 text-red-400 border border-red-500/20' :
+                              log.action.includes('ADDED') || log.action.includes('CREATED') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' :
+                              log.action.includes('STATUS') || log.action.includes('CLOSED') ? 'bg-amber-500/10 text-amber-400 border border-amber-500/20' :
+                              'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                            }`}>
+                              {actionLabels[log.action] || log.action}
+                            </span>
+                          </td>
+
+                          {/* Summary Details */}
+                          <td className="px-5 py-3.5 text-muted-foreground/90 max-w-xs sm:max-w-md truncate">
+                            {getLogSummary(log)}
+                          </td>
+
+                          {/* User ID */}
+                          <td className="px-5 py-3.5 font-mono text-xs text-muted-foreground whitespace-nowrap">
+                            {log.user_id === 'admin_id' ? 'Sistem Yöneticisi' : (log.user_id ? log.user_id.slice(0, 8) + '...' : 'Sistem')}
+                          </td>
+
+                          {/* Details Button */}
+                          <td className="px-5 py-3.5 text-right whitespace-nowrap">
+                            <button
+                              onClick={() => setSelectedLogDetails(log)}
+                              className="bg-primary/10 hover:bg-primary/20 text-primary text-xs font-bold px-3 py-1.5 rounded-lg border-0 cursor-pointer transition-colors"
+                            >
+                              Detay
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                </table>
+              </div>
+              
+              {/* Pagination/Total Info */}
+              <div className="px-5 py-4 border-t border-white/5 bg-white/[0.01] text-xs text-muted-foreground flex items-center justify-between">
+                <span>Toplam <strong>{filteredAuditLogs.length}</strong> sistem kaydı gösteriliyor.</span>
+              </div>
+            </div>
+          </div>
+        )}
+
         {/* 9. SETTINGS */}
         {activeTab === 'settings' && (
           <div className="space-y-6">
@@ -1880,6 +2313,73 @@ END $$;`;
           </div>
         )}
       </main>
+
+      {/* 10. AUDIT LOG DETAIL MODAL */}
+      {selectedLogDetails && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-[#111113] border border-white/5 rounded-2xl w-full max-w-2xl overflow-hidden shadow-2xl flex flex-col max-h-[85vh]">
+            {/* Header */}
+            <div className="px-6 py-4 border-b border-white/5 flex items-center justify-between">
+              <div>
+                <h3 className="font-extrabold text-lg text-foreground">İşlem Detay Kaydı</h3>
+                <p className="text-xs text-muted-foreground font-medium">{selectedLogDetails.id}</p>
+              </div>
+              <button
+                onClick={() => setSelectedLogDetails(null)}
+                className="text-muted-foreground hover:text-foreground bg-white/[0.04] hover:bg-white/[0.08] p-1.5 rounded-lg border-0 cursor-pointer"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 overflow-y-auto space-y-4">
+              <div className="grid grid-cols-2 gap-4 text-xs font-medium">
+                <div>
+                  <span className="text-muted-foreground block mb-0.5">Tarih / Saat:</span>
+                  <span className="text-foreground">{new Date(selectedLogDetails.created_at || '').toLocaleString('tr-TR')}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block mb-0.5">Bayi / Partner:</span>
+                  <span className="text-foreground font-bold">{selectedLogDetails.partner_name || 'Sistem / Genel'}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block mb-0.5">İşlem Tipi:</span>
+                  <span className="text-foreground">{selectedLogDetails.action}</span>
+                </div>
+                <div>
+                  <span className="text-muted-foreground block mb-0.5">Varlık Tipi / Kimliği (Entity ID):</span>
+                  <span className="font-mono text-foreground text-[11px] truncate block">{selectedLogDetails.entity_type} / {selectedLogDetails.entity_id || '-'}</span>
+                </div>
+              </div>
+
+              {/* Human Readable Summary */}
+              <div className="bg-white/[0.01] border border-white/5 rounded-xl p-4">
+                <span className="text-xs text-muted-foreground font-semibold block mb-1">İşlem Özeti:</span>
+                <p className="text-sm font-medium text-foreground">{getLogSummary(selectedLogDetails)}</p>
+              </div>
+
+              {/* JSON raw block */}
+              <div className="space-y-1.5">
+                <span className="text-xs text-muted-foreground font-semibold block">Detaylı JSON Verisi (details):</span>
+                <pre className="bg-[#1A1A1E] border border-white/5 rounded-xl p-4 font-mono text-[11px] leading-relaxed text-emerald-400 overflow-x-auto max-h-60">
+                  {JSON.stringify(selectedLogDetails.details, null, 2)}
+                </pre>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-white/5 bg-white/[0.01] flex justify-end">
+              <button
+                onClick={() => setSelectedLogDetails(null)}
+                className="bg-primary hover:bg-primary-hover text-primary-foreground font-bold text-xs px-5 py-2.5 rounded-xl border-0 cursor-pointer"
+              >
+                Kapat
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

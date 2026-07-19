@@ -22,6 +22,7 @@ export function PartnerDashboard() {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [partner, setPartner] = useState<Partner | null>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [products, setProducts] = useState<Product[]>([]);
   const [orders, setOrders] = useState<Order[]>([]);
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
@@ -308,6 +309,7 @@ export function PartnerDashboard() {
         setPartner(null);
         return;
       }
+      setCurrentUser(user);
 
       // Fetch partner data
       const partnerData = await db.getPartnerById(user.id);
@@ -398,8 +400,26 @@ export function PartnerDashboard() {
   // --- ORDER STATUS UPDATES ---
   const handleOrderStatus = async (orderId: string, status: Order['status']) => {
     try {
+      const order = orders.find(o => o.id === orderId);
       const updated = await db.updateOrderStatus(orderId, status);
       setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
+      
+      if (partner) {
+        await db.logAction({
+          partner_id: partner.id,
+          partner_name: partner.business_name,
+          user_id: currentUser?.id,
+          action: 'ORDER_STATUS_CHANGED',
+          entity_type: 'order',
+          entity_id: orderId,
+          details: {
+            customer_name: order?.customer_name,
+            old_status: order?.status,
+            new_status: status,
+            total_price: order?.total_price
+          }
+        });
+      }
     } catch (err) {
       console.error('Error updating order status:', err);
     }
@@ -408,7 +428,26 @@ export function PartnerDashboard() {
   const executeOrderDelete = async (orderId: string) => {
     setDeletingOrderId(orderId);
     try {
+      const order = orders.find(o => o.id === orderId);
       await db.deleteOrder(orderId);
+      
+      if (partner) {
+        await db.logAction({
+          partner_id: partner.id,
+          partner_name: partner.business_name,
+          user_id: currentUser?.id,
+          action: 'ORDER_DELETED',
+          entity_type: 'order',
+          entity_id: orderId,
+          details: {
+            customer_name: order?.customer_name,
+            customer_phone: order?.customer_phone,
+            total_price: order?.total_price,
+            items: order?.items
+          }
+        });
+      }
+
       setTimeout(() => {
         setOrders(prev => prev.filter(o => o.id !== orderId));
         if (selectedOrderId === orderId) {
@@ -477,7 +516,7 @@ export function PartnerDashboard() {
         title: productTitle,
         description: productDesc,
         price: parseFloat(productPrice) || 0,
-        stock: productStock ? parseInt(productStock, 10) : undefined,
+        stock: productStock ? parseInt(productStock, 10) : 0,
         image: productImage || undefined,
         active: productActive
       };
@@ -485,9 +524,72 @@ export function PartnerDashboard() {
       if (editingProduct) {
         const updated = await db.updateProduct(editingProduct.id, payload);
         setProducts(prev => prev.map(p => p.id === editingProduct.id ? updated : p));
+
+        await db.logAction({
+          partner_id: partner.id,
+          partner_name: partner.business_name,
+          user_id: currentUser?.id,
+          action: 'PRODUCT_UPDATED',
+          entity_type: 'product',
+          entity_id: editingProduct.id,
+          details: {
+            title: payload.title,
+            old_title: editingProduct.title,
+            price: payload.price,
+            stock: payload.stock,
+            active: payload.active
+          }
+        });
+
+        if (editingProduct.price !== payload.price) {
+          await db.logAction({
+            partner_id: partner.id,
+            partner_name: partner.business_name,
+            user_id: currentUser?.id,
+            action: 'PRICE_CHANGED',
+            entity_type: 'product',
+            entity_id: editingProduct.id,
+            details: {
+              product_title: payload.title,
+              old_price: editingProduct.price,
+              new_price: payload.price
+            }
+          });
+        }
+
+        if (editingProduct.stock !== payload.stock) {
+          await db.logAction({
+            partner_id: partner.id,
+            partner_name: partner.business_name,
+            user_id: currentUser?.id,
+            action: 'STOCK_CHANGED',
+            entity_type: 'product',
+            entity_id: editingProduct.id,
+            details: {
+              product_title: payload.title,
+              old_stock: editingProduct.stock,
+              new_stock: payload.stock
+            }
+          });
+        }
       } else {
         const created = await db.createProduct(payload);
         setProducts(prev => [created, ...prev]);
+
+        await db.logAction({
+          partner_id: partner.id,
+          partner_name: partner.business_name,
+          user_id: currentUser?.id,
+          action: 'PRODUCT_ADDED',
+          entity_type: 'product',
+          entity_id: created.id,
+          details: {
+            title: created.title,
+            price: created.price,
+            stock: created.stock,
+            active: created.active
+          }
+        });
       }
       setShowProductModal(false);
     } catch (err) {
@@ -502,8 +604,25 @@ export function PartnerDashboard() {
     if (!confirm('Bu ürünü kalıcı olarak silmek istediğinize emin misiniz?')) return;
 
     try {
+      const prod = products.find(p => p.id === productId);
       await db.deleteProduct(productId);
       setProducts(prev => prev.filter(p => p.id !== productId));
+
+      if (partner) {
+        await db.logAction({
+          partner_id: partner.id,
+          partner_name: partner.business_name,
+          user_id: currentUser?.id,
+          action: 'PRODUCT_DELETED',
+          entity_type: 'product',
+          entity_id: productId,
+          details: {
+            title: prod?.title,
+            price: prod?.price,
+            stock: prod?.stock
+          }
+        });
+      }
     } catch (err) {
       console.error('Error deleting product:', err);
     }
@@ -525,6 +644,22 @@ export function PartnerDashboard() {
       });
       setPartner(updated);
       alert('İşletme bilgileri başarıyla güncellendi!');
+
+      await db.logAction({
+        partner_id: partner.id,
+        partner_name: partner.business_name,
+        user_id: currentUser?.id,
+        action: 'PARTNER_UPDATED',
+        entity_type: 'partner',
+        entity_id: partner.id,
+        details: {
+          business_name: storeName,
+          description: storeDesc,
+          phone: storePhone,
+          address: storeAddress,
+          category: storeCategory
+        }
+      });
     } catch (err) {
       console.error('Error saving store details:', err);
       alert('Bilgiler kaydedilemedi.');
@@ -543,6 +678,18 @@ export function PartnerDashboard() {
       });
       setPartner(updated);
       alert('Çalışma saatleriniz başarıyla kaydedildi!');
+
+      await db.logAction({
+        partner_id: partner.id,
+        partner_name: partner.business_name,
+        user_id: currentUser?.id,
+        action: 'WORKING_HOURS_UPDATED',
+        entity_type: 'partner',
+        entity_id: partner.id,
+        details: {
+          working_hours: workingHours
+        }
+      });
     } catch (err) {
       console.error('Error saving working hours:', err);
       alert('Çalışma saatleri kaydedilemedi.');
@@ -563,6 +710,18 @@ export function PartnerDashboard() {
       const updated = await db.updatePartner(partner.id, { logo: url });
       setPartner(updated);
       alert('Mağaza logosu başarıyla güncellendi!');
+
+      await db.logAction({
+        partner_id: partner.id,
+        partner_name: partner.business_name,
+        user_id: currentUser?.id,
+        action: 'LOGO_UPDATED',
+        entity_type: 'partner',
+        entity_id: partner.id,
+        details: {
+          logo_url: url
+        }
+      });
     } catch (err) {
       console.error('Error uploading logo:', err);
       alert('Logo yüklenemedi.');
@@ -584,6 +743,20 @@ export function PartnerDashboard() {
       
       const updated = await db.updatePartner(partner.id, { gallery: updatedGallery });
       setPartner(updated);
+
+      await db.logAction({
+        partner_id: partner.id,
+        partner_name: partner.business_name,
+        user_id: currentUser?.id,
+        action: 'GALLERY_UPDATED',
+        entity_type: 'partner',
+        entity_id: partner.id,
+        details: {
+          type: 'image_added',
+          image_url: url,
+          total_images: updatedGallery.length
+        }
+      });
     } catch (err) {
       console.error('Error uploading gallery image:', err);
       alert('Görsel yüklenemedi.');
@@ -600,6 +773,20 @@ export function PartnerDashboard() {
       
       const updated = await db.updatePartner(partner.id, { gallery: updatedGallery });
       setPartner(updated);
+
+      await db.logAction({
+        partner_id: partner.id,
+        partner_name: partner.business_name,
+        user_id: currentUser?.id,
+        action: 'GALLERY_UPDATED',
+        entity_type: 'partner',
+        entity_id: partner.id,
+        details: {
+          type: 'image_removed',
+          image_url: urlToRemove,
+          total_images: updatedGallery.length
+        }
+      });
     } catch (err) {
       console.error('Error removing gallery image:', err);
     }
@@ -622,6 +809,19 @@ export function PartnerDashboard() {
       setTicketSubject('');
       setTicketMessage('');
       setTicketSuccess(true);
+
+      await db.logAction({
+        partner_id: partner.id,
+        partner_name: partner.business_name,
+        user_id: currentUser?.id,
+        action: 'SUPPORT_TICKET_CREATED',
+        entity_type: 'support_ticket',
+        entity_id: ticket.id,
+        details: {
+          subject: ticket.subject,
+          message: ticket.message
+        }
+      });
     } catch (err) {
       console.error('Error submitting support ticket:', err);
       alert('Tepki verilemedi. Lütfen alanları kontrol ediniz.');

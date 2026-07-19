@@ -435,5 +435,46 @@ USING (
   )
 );
 
+-- ====================================================
+-- AUDIT LOGS AND SOFT DELETE SUPPORT
+-- ====================================================
+
+-- Alter orders table to support soft delete
+ALTER TABLE public.orders ADD COLUMN IF NOT EXISTS deleted BOOLEAN DEFAULT false NOT NULL;
+
+-- Create Audit Logs Table
+CREATE TABLE IF NOT EXISTS public.audit_logs (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    partner_id UUID,
+    partner_name TEXT,
+    user_id UUID,
+    action TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id UUID,
+    details JSONB,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT now()
+);
+
+-- Enable Row Level Security (RLS) on audit_logs
+ALTER TABLE public.audit_logs ENABLE ROW LEVEL SECURITY;
+
+-- Allow INSERT to audit_logs for anyone
+DROP POLICY IF EXISTS "Allow inserts to audit_logs" ON public.audit_logs;
+CREATE POLICY "Allow inserts to audit_logs" 
+    ON public.audit_logs FOR INSERT 
+    WITH CHECK (true);
+
+-- Allow SELECT to audit_logs only for admins
+DROP POLICY IF EXISTS "Allow select for admins only" ON public.audit_logs;
+CREATE POLICY "Allow select for admins only" 
+    ON public.audit_logs FOR SELECT 
+    USING (
+        EXISTS (
+            SELECT 1 FROM public.profiles 
+            WHERE profiles.id = auth.uid() AND profiles.is_admin = true
+        )
+    );
+
+
 
 

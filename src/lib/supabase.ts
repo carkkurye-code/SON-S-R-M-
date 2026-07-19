@@ -58,6 +58,19 @@ export interface Order {
   created_at: string;
   items?: { title: string; quantity: number; price: number }[];
   archived?: boolean;
+  deleted?: boolean;
+}
+
+export interface AuditLog {
+  id: string;
+  partner_id?: string;
+  partner_name?: string;
+  user_id?: string;
+  action: string;
+  entity_type: string;
+  entity_id?: string;
+  details?: any;
+  created_at: string;
 }
 
 export interface Profile {
@@ -762,12 +775,13 @@ export const db = {
         .from('orders')
         .select('*')
         .eq('partner_id', partnerId)
+        .eq('deleted', false)
         .order('created_at', { ascending: false });
       if (error) throw error;
       return data || [];
     } else {
       const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);
-      return orders.filter(o => o.partner_id === partnerId);
+      return orders.filter(o => o.partner_id === partnerId && !o.deleted);
     }
   },
 
@@ -796,13 +810,16 @@ export const db = {
     if (isSupabaseConfigured && supabase) {
       const { error } = await supabase
         .from('orders')
-        .delete()
+        .update({ deleted: true })
         .eq('id', orderId);
       if (error) throw error;
     } else {
       const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);
-      const filtered = orders.filter(o => o.id !== orderId);
-      setStored(LOCAL_STORAGE_KEYS.ORDERS, filtered);
+      const index = orders.findIndex(o => o.id === orderId);
+      if (index !== -1) {
+        orders[index].deleted = true;
+        setStored(LOCAL_STORAGE_KEYS.ORDERS, orders);
+      }
     }
   },
 
@@ -1148,6 +1165,57 @@ export const db = {
         tickets[index].status = status;
         setStored('ugra_virtual_support_tickets', tickets);
       }
+    }
+  },
+
+  async logAction(log: {
+    partner_id?: string;
+    partner_name?: string;
+    user_id?: string;
+    action: string;
+    entity_type: string;
+    entity_id?: string;
+    details?: any;
+  }) {
+    try {
+      if (isSupabaseConfigured && supabase) {
+        const { error } = await supabase.from('audit_logs').insert({
+          partner_id: log.partner_id || null,
+          partner_name: log.partner_name || null,
+          user_id: log.user_id || null,
+          action: log.action,
+          entity_type: log.entity_type,
+          entity_id: log.entity_id || null,
+          details: log.details || {}
+        });
+        if (error) {
+          console.error('Error inserting audit log to Supabase:', error);
+        }
+      } else {
+        const logs = getStored<AuditLog>('ugra_virtual_audit_logs');
+        const newLog: AuditLog = {
+          ...log,
+          id: 'log_' + Math.random().toString(36).substr(2, 9),
+          created_at: new Date().toISOString()
+        };
+        logs.unshift(newLog);
+        setStored('ugra_virtual_audit_logs', logs);
+      }
+    } catch (err) {
+      console.error('Failed to log action:', err);
+    }
+  },
+
+  async getAuditLogs(): Promise<AuditLog[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('audit_logs')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } else {
+      return getStored<AuditLog>('ugra_virtual_audit_logs');
     }
   }
 };
