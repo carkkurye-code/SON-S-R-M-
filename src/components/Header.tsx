@@ -118,12 +118,6 @@ export function Header() {
                   >
                     Uygulamayı Yükle
                   </button>
-
-                  <Link href="/partner/login" onClick={() => setIsOpen(false)} className="w-full max-w-[240px]">
-                    <span className="w-full block px-6 py-2.5 bg-primary hover:bg-primary/90 text-primary-foreground rounded-full text-sm font-semibold tracking-wider transition-all uppercase cursor-pointer text-center">
-                      İşletme Paneli
-                    </span>
-                  </Link>
                 </motion.div>
               </div>
             </motion.div>

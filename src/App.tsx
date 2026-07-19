@@ -3,8 +3,8 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Route, Switch, Router as WouterRouter } from 'wouter';
 import { Home } from '@/pages/Home';
 import { TasimaKosullari } from '@/pages/TasimaKosullari';
-import { PartnerLogin } from '@/pages/PartnerLogin';
 import { PartnerDashboard } from '@/pages/PartnerDashboard';
+import { AdminPanel } from '@/pages/AdminPanel';
 import { StoreFront } from '@/pages/StoreFront';
 import { Toaster } from '@/components/ui/toaster';
 
@@ -29,8 +29,8 @@ function Router() {
     <Switch>
       <Route path="/" component={Home} />
       <Route path="/tasima-kosullari" component={TasimaKosullari} />
-      <Route path="/partner/login" component={PartnerLogin} />
-      <Route path="/partner/dashboard" component={PartnerDashboard} />
+      <Route path="/partner" component={PartnerDashboard} />
+      <Route path="/admin" component={AdminPanel} />
       <Route path="/:slug" component={StoreFront} />
       <Route component={NotFound} />
     </Switch>

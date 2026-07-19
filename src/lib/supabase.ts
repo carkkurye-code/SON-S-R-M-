@@ -29,6 +29,9 @@ export interface Partner {
   category?: string;
   active: boolean;
   created_at: string;
+  status?: 'pending' | 'approved' | 'rejected';
+  working_hours?: Record<string, { open: string; close: string; closed: boolean }>;
+  gallery?: string[];
 }
 
 export interface Product {
@@ -60,6 +63,17 @@ export interface Profile {
   id: string;
   partner_id: string;
   role: string;
+  is_admin?: boolean;
+  created_at: string;
+}
+
+export interface SupportTicket {
+  id: string;
+  partner_id: string;
+  business_name?: string;
+  subject: string;
+  message: string;
+  status: 'acik' | 'cozuldu' | 'iptal';
   created_at: string;
 }
 
@@ -298,18 +312,77 @@ export const db = {
     if (isSupabaseConfigured && supabase) {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
+      
+      const user = data.user;
+      if (user) {
+        // Fetch profile
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, is_admin, partner_id')
+          .eq('id', user.id)
+          .maybeSingle();
+        
+        const isAdmin = profile?.role === 'admin' || profile?.is_admin === true || email === 'admin@ugra.app';
+        if (!isAdmin) {
+          // If not admin, check partner status
+          const partnerId = profile?.partner_id || user.id;
+          const { data: partner } = await supabase
+            .from('partners')
+            .select('status, active')
+            .eq('id', partnerId)
+            .maybeSingle();
+          
+          const status = partner?.status || 'pending';
+          if (status !== 'approved') {
+            await supabase.auth.signOut();
+            if (status === 'rejected') {
+              throw new Error('Başvurunuz reddedilmiştir. Lütfen destek ekibi ile iletişime geçin.');
+            } else {
+              throw new Error('Hesabınız henüz onaylanmadı. Lütfen yönetici onayını bekleyiniz.');
+            }
+          }
+        }
+      }
       return data;
     } else {
-      // Virtual Login: check if there's a user or find partner by email
-      // For demo convenience, password '123456' is accepted for any partner, or create profile
+      // Virtual Login
+      const lowercaseEmail = email.toLowerCase().trim();
+      
+      // Admin Login
+      if (lowercaseEmail === 'admin@ugra.app') {
+        const mockAdminUser = {
+          user: {
+            id: 'admin_id',
+            email: 'admin@ugra.app',
+            user_metadata: { business_name: 'UĞRA Yönetim' },
+            is_admin: true
+          },
+          session: { access_token: 'mock-admin-token' }
+        };
+        localStorage.setItem(LOCAL_STORAGE_KEYS.SESSION, JSON.stringify(mockAdminUser));
+        return mockAdminUser;
+      }
+
+      // Partner Login
       const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
-      // Let's search partner by email slug
-      const emailLocal = email.split('@')[0];
-      let partner = partners.find(p => p.slug === emailLocal || p.phone?.includes(emailLocal));
+      const emailLocal = lowercaseEmail.split('@')[0];
+      let partner = partners.find(p => p.slug === emailLocal || p.phone?.includes(emailLocal) || p.business_name.toLowerCase().replace(/\s+/g, '') === emailLocal);
+      
       if (!partner) {
-        // Just use first partner or create a new one to keep it frictionless
         partner = partners[0];
       }
+
+      if (partner) {
+        const status = partner.status || 'approved'; // Default approved for seeded ones
+        if (status !== 'approved') {
+          if (status === 'rejected') {
+            throw new Error('Başvurunuz reddedilmiştir. Lütfen destek ekibi ile iletişime geçin.');
+          } else {
+            throw new Error('Hesabınız henüz onaylanmadı. Lütfen yönetici onayını bekleyiniz.');
+          }
+        }
+      }
+
       const mockUser = {
         user: {
           id: partner.id,
@@ -343,7 +416,7 @@ export const db = {
 
       const userId = authData.user.id;
 
-      // 2. Create partner entry (using upsert so it works seamlessly if trigger already inserted it or if client inserts it)
+      // 2. Create partner entry (using upsert)
       let partnerData = null;
       try {
         const { data: upsertedPartner, error: partnerError } = await supabase
@@ -352,7 +425,8 @@ export const db = {
             id: userId,
             slug: cleanSlug,
             business_name: businessName,
-            active: true
+            active: false, // Default false until approved
+            status: 'pending' // Default pending
           })
           .select()
           .maybeSingle();
@@ -369,7 +443,7 @@ export const db = {
           partnerData = fetchedPartner;
         }
       } catch (e) {
-        console.warn('Could not insert partner from client (likely waiting for email verification):', e);
+        console.warn('Could not insert partner from client:', e);
       }
 
       // If partnerData is still null, create a fallback object so the application doesn't break
@@ -378,7 +452,8 @@ export const db = {
           id: userId,
           slug: cleanSlug,
           business_name: businessName,
-          active: true,
+          active: false,
+          status: 'pending',
           created_at: new Date().toISOString()
         };
       }
@@ -390,15 +465,16 @@ export const db = {
           .upsert({
             id: userId,
             partner_id: userId,
-            role: 'owner'
+            role: 'owner',
+            is_admin: false
           });
       } catch (e) {
-        console.warn('Could not insert profile from client (likely waiting for email verification):', e);
+        console.warn('Could not insert profile from client:', e);
       }
 
       return { user: authData.user, partner: partnerData };
     } else {
-      // Virtual Sign Up
+      // Virtual Sign Up (Application)
       const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
       if (partners.some(p => p.slug === cleanSlug)) {
         throw new Error('Bu mağaza ismi/adresi zaten alınmış.');
@@ -409,7 +485,8 @@ export const db = {
         id: newId,
         slug: cleanSlug,
         business_name: businessName,
-        active: true,
+        active: false, // Default false until approved
+        status: 'pending', // Default pending
         created_at: new Date().toISOString()
       };
 
@@ -682,6 +759,330 @@ export const db = {
       orders[index] = updated;
       setStored(LOCAL_STORAGE_KEYS.ORDERS, orders);
       return updated;
+    }
+  },
+
+  // --- EXTRA ADMIN & CUSTOMER/TICKET SERVICES ---
+  async isUserAdmin(userId: string): Promise<boolean> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('is_admin')
+        .eq('id', userId)
+        .maybeSingle();
+      if (error || !data) return false;
+      return !!data.is_admin;
+    } else {
+      const session = localStorage.getItem(LOCAL_STORAGE_KEYS.SESSION);
+      if (!session) return false;
+      const user = JSON.parse(session).user;
+      return user.email === 'admin@ugra.app' || !!user.is_admin;
+    }
+  },
+
+  async resetPassword(email: string) {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: `${window.location.origin}/partner`
+      });
+      if (error) throw error;
+      return true;
+    } else {
+      return true;
+    }
+  },
+
+  async getAdminPartners(): Promise<Partner[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('partners')
+        .select('*')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return data || [];
+    } else {
+      return getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+    }
+  },
+
+  async adminApprovePartner(id: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('partners')
+        .update({ status: 'approved', active: true })
+        .eq('id', id);
+      if (error) throw error;
+    } else {
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      const index = partners.findIndex(p => p.id === id);
+      if (index !== -1) {
+        partners[index].status = 'approved';
+        partners[index].active = true;
+        setStored(LOCAL_STORAGE_KEYS.PARTNERS, partners);
+      }
+    }
+  },
+
+  async adminRejectPartner(id: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('partners')
+        .update({ status: 'rejected', active: false })
+        .eq('id', id);
+      if (error) throw error;
+    } else {
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      const index = partners.findIndex(p => p.id === id);
+      if (index !== -1) {
+        partners[index].status = 'rejected';
+        partners[index].active = false;
+        setStored(LOCAL_STORAGE_KEYS.PARTNERS, partners);
+      }
+    }
+  },
+
+  async adminCreatePartner(partner: Omit<Partner, 'id' | 'created_at'>): Promise<Partner> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('partners')
+        .insert({
+          ...partner,
+          status: 'approved',
+          active: true
+        })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      const newId = 'p_' + Math.random().toString(36).substr(2, 9);
+      const newPartner: Partner = {
+        ...partner,
+        id: newId,
+        status: 'approved',
+        active: true,
+        created_at: new Date().toISOString()
+      };
+      partners.push(newPartner);
+      setStored(LOCAL_STORAGE_KEYS.PARTNERS, partners);
+      return newPartner;
+    }
+  },
+
+  async adminUpdatePartner(id: string, updates: Partial<Partner>): Promise<Partner> {
+    return this.updatePartner(id, updates);
+  },
+
+  async adminDeletePartner(id: string): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('partners')
+        .delete()
+        .eq('id', id);
+      if (error) throw error;
+    } else {
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      const filtered = partners.filter(p => p.id !== id);
+      setStored(LOCAL_STORAGE_KEYS.PARTNERS, filtered);
+    }
+  },
+
+  async adminGetAllProducts(): Promise<(Product & { partner_name?: string })[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('products')
+        .select('*, partners(business_name)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((p: any) => ({
+        ...p,
+        partner_name: p.partners?.business_name
+      }));
+    } else {
+      const products = getStored<Product>(LOCAL_STORAGE_KEYS.PRODUCTS);
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      return products.map(p => {
+        const partner = partners.find(pt => pt.id === p.partner_id);
+        return {
+          ...p,
+          partner_name: partner?.business_name
+        };
+      });
+    }
+  },
+
+  async adminGetAllOrders(): Promise<(Order & { partner_name?: string })[]> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('*, partners(business_name)')
+        .order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((o: any) => ({
+        ...o,
+        partner_name: o.partners?.business_name
+      }));
+    } else {
+      const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      return orders.map(o => {
+        const partner = partners.find(pt => pt.id === o.partner_id);
+        return {
+          ...o,
+          partner_name: partner?.business_name
+        };
+      });
+    }
+  },
+
+  async adminGetAllCustomers() {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .select('customer_name, customer_phone, customer_address, created_at, partner_id, partners(business_name)');
+      if (error) throw error;
+      
+      const customerMap = new Map();
+      (data || []).forEach((item: any) => {
+        const key = `${item.customer_name}_${item.customer_phone}`;
+        if (!customerMap.has(key)) {
+          customerMap.set(key, {
+            name: item.customer_name,
+            phone: item.customer_phone,
+            address: item.customer_address,
+            lastOrderDate: item.created_at,
+            orderCount: 1,
+            stores: new Set([item.partners?.business_name || 'Bilinmeyen Mağaza'])
+          });
+        } else {
+          const cust = customerMap.get(key);
+          cust.orderCount += 1;
+          cust.stores.add(item.partners?.business_name || 'Bilinmeyen Mağaza');
+          if (new Date(item.created_at) > new Date(cust.lastOrderDate)) {
+            cust.lastOrderDate = item.created_at;
+          }
+        }
+      });
+      
+      return Array.from(customerMap.values()).map(c => ({
+        ...c,
+        stores: Array.from(c.stores).join(', ')
+      }));
+    } else {
+      const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      const customerMap = new Map();
+      orders.forEach(o => {
+        const key = `${o.customer_name}_${o.customer_phone}`;
+        const storeName = partners.find(pt => pt.id === o.partner_id)?.business_name || 'Bilinmeyen Mağaza';
+        if (!customerMap.has(key)) {
+          customerMap.set(key, {
+            name: o.customer_name,
+            phone: o.customer_phone,
+            address: o.customer_address,
+            lastOrderDate: o.created_at,
+            orderCount: 1,
+            stores: new Set([storeName])
+          });
+        } else {
+          const cust = customerMap.get(key);
+          cust.orderCount += 1;
+          cust.stores.add(storeName);
+          if (new Date(o.created_at) > new Date(cust.lastOrderDate)) {
+            cust.lastOrderDate = o.created_at;
+          }
+        }
+      });
+      return Array.from(customerMap.values()).map(c => ({
+        ...c,
+        stores: Array.from(c.stores).join(', ')
+      }));
+    }
+  },
+
+  async getSupportTickets(partnerId?: string): Promise<SupportTicket[]> {
+    if (isSupabaseConfigured && supabase) {
+      let query = supabase.from('support_tickets').select('*, partners(business_name)');
+      if (partnerId) {
+        query = query.eq('partner_id', partnerId);
+      }
+      const { data, error } = await query.order('created_at', { ascending: false });
+      if (error) throw error;
+      return (data || []).map((t: any) => ({
+        ...t,
+        business_name: t.partners?.business_name
+      }));
+    } else {
+      const tickets = getStored<SupportTicket>('ugra_virtual_support_tickets');
+      if (tickets.length === 0) {
+        const defaultTickets: SupportTicket[] = [
+          {
+            id: 't1',
+            partner_id: 'p1',
+            subject: 'Ödeme Entegrasyonu',
+            message: 'Kredi kartı ödemeleri ne zaman aktif olacak?',
+            status: 'acik',
+            created_at: new Date(Date.now() - 3600000 * 2).toISOString()
+          },
+          {
+            id: 't2',
+            partner_id: 'p2',
+            subject: 'Logo Yükleme Sorunu',
+            message: 'İşletme logosu yüklerken hata alıyorum.',
+            status: 'cozuldu',
+            created_at: new Date(Date.now() - 3600000 * 24).toISOString()
+          }
+        ];
+        setStored('ugra_virtual_support_tickets', defaultTickets);
+        tickets.push(...defaultTickets);
+      }
+      const partners = getStored<Partner>(LOCAL_STORAGE_KEYS.PARTNERS);
+      const filtered = partnerId ? tickets.filter(t => t.partner_id === partnerId) : tickets;
+      return filtered.map(t => ({
+        ...t,
+        business_name: partners.find(p => p.id === t.partner_id)?.business_name
+      }));
+    }
+  },
+
+  async createSupportTicket(ticket: Omit<SupportTicket, 'id' | 'created_at' | 'status'>): Promise<SupportTicket> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('support_tickets')
+        .insert({ ...ticket, status: 'acik' })
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      const tickets = getStored<SupportTicket>('ugra_virtual_support_tickets');
+      const newTicket: SupportTicket = {
+        ...ticket,
+        id: 't_' + Math.random().toString(36).substr(2, 9),
+        status: 'acik',
+        created_at: new Date().toISOString()
+      };
+      tickets.unshift(newTicket);
+      setStored('ugra_virtual_support_tickets', tickets);
+      return newTicket;
+    }
+  },
+
+  async updateSupportTicketStatus(ticketId: string, status: SupportTicket['status']): Promise<void> {
+    if (isSupabaseConfigured && supabase) {
+      const { error } = await supabase
+        .from('support_tickets')
+        .update({ status })
+        .eq('id', ticketId);
+      if (error) throw error;
+    } else {
+      const tickets = getStored<SupportTicket>('ugra_virtual_support_tickets');
+      const index = tickets.findIndex(t => t.id === ticketId);
+      if (index !== -1) {
+        tickets[index].status = status;
+        setStored('ugra_virtual_support_tickets', tickets);
+      }
     }
   }
 };
