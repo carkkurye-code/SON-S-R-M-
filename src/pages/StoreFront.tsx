@@ -3,9 +3,14 @@ import { useRoute, Link } from 'wouter';
 import { db, Partner, Product, Order } from '@/lib/supabase';
 import { 
   ShoppingBag, Phone, MapPin, Loader2, ShoppingCart, Check, 
-  ArrowLeft, ChevronRight, CheckCircle2, ShieldAlert, CreditCard, Banknote
+  ArrowLeft, ChevronRight, CheckCircle2, ShieldAlert, CreditCard, Banknote, Trash2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+
+export interface CartItem {
+  product: Product;
+  quantity: number;
+}
 
 export function StoreFront() {
   const [, params] = useRoute('/:slug');
@@ -16,13 +21,15 @@ export function StoreFront() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(false);
 
-  // Checkout Modal State
-  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  // Cart Local State
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [isCheckoutOpen, setIsCheckoutOpen] = useState(false);
+
+  // Checkout Form State
   const [custName, setCustName] = useState('');
   const [custPhone, setCustPhone] = useState('');
   const [custAddress, setCustAddress] = useState('');
   const [paymentType, setPaymentType] = useState<'kapida_nakit' | 'kapida_kart'>('kapida_kart');
-  const [quantity, setQuantity] = useState(1);
   const [orderSubmitting, setOrderSubmitting] = useState(false);
   const [orderSuccess, setOrderSuccess] = useState(false);
 
@@ -53,9 +60,44 @@ export function StoreFront() {
     }
   }, [slug]);
 
+  const addToCart = (product: Product) => {
+    setCart(prev => {
+      const existing = prev.find(item => item.product.id === product.id);
+      if (existing) {
+        return prev.map(item => 
+          item.product.id === product.id 
+            ? { ...item, quantity: item.quantity + 1 } 
+            : item
+        );
+      }
+      return [...prev, { product, quantity: 1 }];
+    });
+  };
+
+  const updateCartQuantity = (productId: string, newQty: number) => {
+    if (newQty <= 0) {
+      removeFromCart(productId);
+      return;
+    }
+    setCart(prev => prev.map(item => 
+      item.product.id === productId ? { ...item, quantity: newQty } : item
+    ));
+  };
+
+  const removeFromCart = (productId: string) => {
+    setCart(prev => prev.filter(item => item.product.id !== productId));
+  };
+
+  const clearCart = () => {
+    setCart([]);
+  };
+
+  const cartTotal = cart.reduce((acc, item) => acc + (item.product.price * item.quantity), 0);
+  const cartItemCount = cart.reduce((acc, item) => acc + item.quantity, 0);
+
   const handleOrderSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!partner || !selectedProduct) return;
+    if (!partner || cart.length === 0) return;
 
     if (!custName.trim() || !custPhone.trim() || !custAddress.trim()) {
       alert('Lütfen tüm sipariş bilgilerini eksiksiz doldurunuz.');
@@ -64,26 +106,27 @@ export function StoreFront() {
 
     setOrderSubmitting(true);
     try {
-      const orderTotal = selectedProduct.price * quantity;
-      
+      const orderItems = cart.map(item => ({
+        product_id: item.product.id,
+        name: item.product.title,
+        title: item.product.title, // Consistent with mapping in PartnerDashboard.tsx
+        price: item.product.price,
+        quantity: item.quantity
+      }));
+
       const newOrderData: Omit<Order, 'id' | 'created_at' | 'status'> = {
         partner_id: partner.id,
         customer_name: custName,
         customer_phone: custPhone,
         customer_address: custAddress,
         payment_type: paymentType,
-        total_price: orderTotal,
-        items: [
-          {
-            title: selectedProduct.title,
-            quantity: quantity,
-            price: selectedProduct.price
-          }
-        ]
+        total_price: cartTotal,
+        items: orderItems
       };
 
       await db.createOrder(newOrderData);
       setOrderSuccess(true);
+      clearCart();
     } catch (err: any) {
       console.error('Error placing order:', err);
       const errMsg = err?.message || (typeof err === 'object' ? JSON.stringify(err) : String(err));
@@ -95,11 +138,10 @@ export function StoreFront() {
 
   const closeSuccessDialog = () => {
     setOrderSuccess(false);
-    setSelectedProduct(null);
+    setIsCheckoutOpen(false);
     setCustName('');
     setCustPhone('');
     setCustAddress('');
-    setQuantity(1);
   };
 
   if (loading) {
@@ -209,54 +251,111 @@ export function StoreFront() {
           </div>
         ) : (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
-            {products.map((prod) => (
-              <div key={prod.id} className="bg-[#111113] border border-white/5 rounded-2xl overflow-hidden flex flex-col justify-between group hover:border-primary/20 transition-all duration-300">
-                {/* Product Image */}
-                <div className="relative h-56 bg-[#1A1A1C] overflow-hidden flex items-center justify-center">
-                  {prod.image ? (
-                    <img referrerPolicy="no-referrer" src={prod.image} alt={prod.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
-                  ) : (
-                    <ShoppingBag className="w-16 h-16 text-muted-foreground/10" />
-                  )}
-                  {prod.stock <= 3 && prod.stock > 0 && (
-                    <span className="absolute top-3 left-3 bg-orange-600 text-white font-bold text-[10px] px-2 py-0.5 rounded uppercase">
-                      Son {prod.stock} Ürün!
-                    </span>
-                  )}
-                </div>
+            {products.map((prod) => {
+              const cartItem = cart.find(item => item.product.id === prod.id);
 
-                {/* Product Details */}
-                <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
-                  <div className="space-y-2">
-                    <div className="flex justify-between items-start gap-2">
-                      <h4 className="font-bold text-white text-base truncate">{prod.title}</h4>
-                      <span className="text-primary font-extrabold text-base whitespace-nowrap">{prod.price} ₺</span>
-                    </div>
-                    <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
-                      {prod.description || 'Bu ürün için açıklama belirtilmemiş.'}
-                    </p>
+              return (
+                <div key={prod.id} className="bg-[#111113] border border-white/5 rounded-2xl overflow-hidden flex flex-col justify-between group hover:border-primary/20 transition-all duration-300">
+                  {/* Product Image */}
+                  <div className="relative h-56 bg-[#1A1A1C] overflow-hidden flex items-center justify-center">
+                    {prod.image ? (
+                      <img referrerPolicy="no-referrer" src={prod.image} alt={prod.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                    ) : (
+                      <ShoppingBag className="w-16 h-16 text-muted-foreground/10" />
+                    )}
+                    {prod.stock <= 3 && prod.stock > 0 && (
+                      <span className="absolute top-3 left-3 bg-orange-600 text-white font-bold text-[10px] px-2 py-0.5 rounded uppercase">
+                        Son {prod.stock} Ürün!
+                      </span>
+                    )}
                   </div>
 
-                  <button
-                    onClick={() => {
-                      setSelectedProduct(prod);
-                      setOrderSuccess(false);
-                    }}
-                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 hover:shadow-primary/25"
-                  >
-                    <ShoppingCart className="w-4 h-4" />
-                    Sipariş Ver
-                  </button>
+                  {/* Product Details */}
+                  <div className="p-5 flex-1 flex flex-col justify-between space-y-4">
+                    <div className="space-y-2">
+                      <div className="flex justify-between items-start gap-2">
+                        <h4 className="font-bold text-white text-base truncate">{prod.title}</h4>
+                        <span className="text-primary font-extrabold text-base whitespace-nowrap">{prod.price} ₺</span>
+                      </div>
+                      <p className="text-xs text-muted-foreground line-clamp-3 leading-relaxed">
+                        {prod.description || 'Bu ürün için açıklama belirtilmemiş.'}
+                      </p>
+                    </div>
+
+                    {cartItem ? (
+                      <div className="flex items-center justify-between gap-2 w-full bg-white/[0.02] border border-white/10 rounded-xl p-1">
+                        <button
+                          onClick={() => updateCartQuantity(prod.id, cartItem.quantity - 1)}
+                          className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center font-bold text-white hover:bg-white/[0.1] transition-all cursor-pointer text-sm"
+                        >
+                          -
+                        </button>
+                        <span className="font-extrabold text-xs text-white px-2">{cartItem.quantity} Adet</span>
+                        <button
+                          onClick={() => updateCartQuantity(prod.id, cartItem.quantity + 1)}
+                          className="w-10 h-10 rounded-lg bg-white/[0.04] border border-white/5 flex items-center justify-center font-bold text-white hover:bg-white/[0.1] transition-all cursor-pointer text-sm"
+                        >
+                          +
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => addToCart(prod)}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground font-bold py-3.5 rounded-xl text-xs uppercase tracking-wider transition-all duration-300 active:scale-98 cursor-pointer flex items-center justify-center gap-1.5 shadow-md shadow-primary/10 hover:shadow-primary/25"
+                      >
+                        <ShoppingCart className="w-4 h-4" />
+                        Sepete Ekle
+                      </button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </section>
 
+      {/* STICKY BOTTOM CART (FOR MOBILE) & FLOATING CART (FOR DESKTOP) */}
+      <AnimatePresence>
+        {cart.length > 0 && (
+          <motion.div 
+            initial={{ y: 50, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 50, opacity: 0 }}
+            transition={{ duration: 0.3 }}
+            className="fixed bottom-0 left-0 right-0 md:bottom-6 md:right-6 md:left-auto z-40 p-4 md:p-0"
+          >
+            <div className="bg-[#111113] border border-white/10 md:rounded-2xl shadow-2xl p-4 md:w-96 flex items-center justify-between gap-4 w-full rounded-xl">
+              <div className="flex items-center gap-3">
+                <div className="relative w-10 h-10 bg-primary/10 border border-primary/20 rounded-xl flex items-center justify-center text-primary shrink-0">
+                  <ShoppingCart className="w-5 h-5" />
+                  <span className="absolute -top-1.5 -right-1.5 bg-primary text-primary-foreground font-bold text-[10px] w-5 h-5 rounded-full flex items-center justify-center border-2 border-[#111113]">
+                    {cartItemCount}
+                  </span>
+                </div>
+                <div>
+                  <div className="text-[10px] text-muted-foreground uppercase font-bold tracking-wider">Sipariş Toplamı</div>
+                  <div className="text-base font-extrabold text-white">{cartTotal.toLocaleString('tr-TR')} ₺</div>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setIsCheckoutOpen(true);
+                  setOrderSuccess(false);
+                }}
+                className="bg-primary hover:bg-primary/90 text-primary-foreground text-xs uppercase font-extrabold tracking-wider px-5 py-3 rounded-xl flex items-center gap-1.5 transition-all shadow-md active:scale-98 cursor-pointer border-0"
+              >
+                Siparişi Tamamla
+                <ChevronRight className="w-4 h-4" />
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
       {/* CHECKOUT MODAL & REDESIGNED SUCCESS DIALOG */}
       <AnimatePresence>
-        {selectedProduct && (
+        {isCheckoutOpen && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
             {/* Backdrop with Blur */}
             <motion.div 
@@ -273,30 +372,56 @@ export function StoreFront() {
               animate={{ opacity: 1, scale: 1 }}
               exit={{ opacity: 0, scale: 0.95 }}
               transition={{ duration: 0.25, ease: 'easeOut' }}
-              className={`relative z-10 w-[85%] max-w-[360px] bg-white text-[#111111] rounded-[20px] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.08)] overflow-hidden max-h-[90vh] overflow-y-auto`}
+              className={`relative z-10 w-[92%] max-w-[420px] bg-white text-[#111111] rounded-[20px] p-6 shadow-[0_12px_40px_rgba(0,0,0,0.08)] overflow-hidden max-h-[90vh] overflow-y-auto`}
             >
               {!orderSuccess ? (
                 /* CHECKOUT FLOW FORM */
                 <div className="space-y-4">
                   {/* Modal Header */}
                   <div className="text-center pb-2 border-b border-gray-100">
-                    <h3 className="font-bold text-lg text-gray-900 truncate">Sipariş Oluştur</h3>
+                    <h3 className="font-bold text-lg text-gray-900 truncate">Siparişi Tamamla</h3>
                     <p className="text-xs text-gray-500 mt-0.5">Siparişiniz doğrudan işletmeye iletilecektir.</p>
                   </div>
 
-                  {/* Product Details Mini-Card */}
-                  <div className="bg-gray-50 rounded-xl p-3 flex items-center gap-3 border border-gray-100">
-                    <div className="w-12 h-12 rounded-lg bg-gray-200 overflow-hidden shrink-0">
-                      {selectedProduct.image ? (
-                        <img referrerPolicy="no-referrer" src={selectedProduct.image} alt={selectedProduct.title} className="w-full h-full object-cover" />
-                      ) : (
-                        <div className="w-full h-full flex items-center justify-center text-gray-400 font-extrabold text-sm">{selectedProduct.title.charAt(0)}</div>
-                      )}
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <h4 className="font-bold text-gray-900 text-sm truncate">{selectedProduct.title}</h4>
-                      <p className="text-xs text-gray-500 font-bold mt-0.5">{selectedProduct.price} ₺ / adet</p>
-                    </div>
+                  {/* Cart Items List */}
+                  <div className="space-y-2 max-h-[160px] overflow-y-auto pr-1">
+                    <div className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Sepetinizdeki Ürünler</div>
+                    {cart.map((item) => (
+                      <div key={item.product.id} className="bg-gray-50 rounded-xl p-2.5 flex items-center justify-between gap-3 border border-gray-100">
+                        <div className="min-w-0 flex-1">
+                          <h4 className="font-bold text-gray-900 text-xs truncate">{item.product.title}</h4>
+                          <p className="text-[10px] text-gray-500 font-bold mt-0.5">{item.product.price} ₺ / adet</p>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product.id, item.quantity - 1)}
+                            className="w-6 h-6 rounded-md border border-gray-200 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 text-xs cursor-pointer"
+                          >
+                            -
+                          </button>
+                          <span className="font-extrabold text-xs text-gray-900 w-4 text-center">{item.quantity}</span>
+                          <button
+                            type="button"
+                            onClick={() => updateCartQuantity(item.product.id, item.quantity + 1)}
+                            className="w-6 h-6 rounded-md border border-gray-200 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 text-xs cursor-pointer"
+                          >
+                            +
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => removeFromCart(item.product.id)}
+                            className="w-6 h-6 text-red-500 hover:text-red-600 hover:bg-red-50 flex items-center justify-center rounded-md transition-colors cursor-pointer border-0 bg-transparent"
+                            title="Ürünü Çıkar"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        </div>
+                        <span className="text-xs font-bold text-gray-900 whitespace-nowrap min-w-[55px] text-right shrink-0">
+                          {(item.product.price * item.quantity).toLocaleString('tr-TR')} ₺
+                        </span>
+                      </div>
+                    ))}
                   </div>
 
                   {/* Form */}
@@ -339,30 +464,8 @@ export function StoreFront() {
                       />
                     </div>
 
-                    {/* Quantity Selector */}
-                    <div className="flex items-center justify-between py-2 border-t border-b border-gray-100 my-2">
-                      <span className="text-xs font-semibold text-gray-700">Adet:</span>
-                      <div className="flex items-center gap-3">
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(Math.max(1, quantity - 1))}
-                          className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 text-sm cursor-pointer"
-                        >
-                          -
-                        </button>
-                        <span className="font-extrabold text-sm text-gray-900">{quantity}</span>
-                        <button
-                          type="button"
-                          onClick={() => setQuantity(quantity + 1)}
-                          className="w-7 h-7 rounded-lg border border-gray-200 flex items-center justify-center font-bold text-gray-600 hover:bg-gray-100 text-sm cursor-pointer"
-                        >
-                          +
-                        </button>
-                      </div>
-                    </div>
-
                     {/* Payment Selector */}
-                    <div className="space-y-1.5">
+                    <div className="space-y-1.5 pt-1">
                       <label className="text-[10px] font-bold uppercase tracking-wider text-gray-400">Kapıda Ödeme Seçeneği</label>
                       <div className="grid grid-cols-2 gap-2">
                         <button
@@ -388,21 +491,21 @@ export function StoreFront() {
                     <div className="pt-4 space-y-3">
                       <div className="flex justify-between items-center text-sm font-bold text-gray-900">
                         <span>Toplam Tutar:</span>
-                        <span className="text-orange-500 text-lg">{(selectedProduct.price * quantity).toLocaleString('tr-TR')} ₺</span>
+                        <span className="text-orange-500 text-lg">{cartTotal.toLocaleString('tr-TR')} ₺</span>
                       </div>
 
                       <div className="flex gap-2">
                         <button
                           type="button"
-                          onClick={() => setSelectedProduct(null)}
-                          className="flex-1 py-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer"
+                          onClick={() => setIsCheckoutOpen(false)}
+                          className="flex-1 py-3 border border-gray-200 hover:bg-gray-50 text-gray-700 font-semibold rounded-xl text-xs transition-colors cursor-pointer bg-transparent"
                         >
-                          İptal
+                          Kapat
                         </button>
                         <button
                           type="submit"
                           disabled={orderSubmitting}
-                          className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm"
+                          className="flex-1 py-3 bg-orange-500 hover:bg-orange-600 text-white font-semibold rounded-xl text-xs transition-all cursor-pointer flex items-center justify-center gap-1.5 shadow-sm border-0"
                         >
                           {orderSubmitting ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : 'Siparişi İlet'}
                         </button>
@@ -444,7 +547,7 @@ export function StoreFront() {
                   {/* Tamam Button */}
                   <button
                     onClick={closeSuccessDialog}
-                    className="w-full h-[50px] bg-[#F97316] hover:bg-[#ea580c] text-white font-semibold rounded-[16px] transition-colors duration-300 ease-out active:scale-[0.98] cursor-pointer text-base shadow-sm"
+                    className="w-full h-[50px] bg-[#F97316] hover:bg-[#ea580c] text-white font-semibold rounded-[16px] transition-colors duration-300 ease-out active:scale-[0.98] cursor-pointer text-base border-0"
                   >
                     Tamam
                   </button>
