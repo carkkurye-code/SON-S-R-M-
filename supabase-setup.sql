@@ -407,3 +407,18 @@ BEGIN
 
 END $$;
 
+-- Enable Realtime for orders table and allow filtering on non-primary-key columns
+ALTER TABLE public.orders REPLICA IDENTITY FULL;
+
+-- Check if supabase_realtime publication exists and add table to it
+DO $$
+BEGIN
+  IF EXISTS (SELECT 1 FROM pg_publication WHERE pubname = 'supabase_realtime') THEN
+    ALTER PUBLICATION supabase_realtime ADD TABLE public.orders;
+  END IF;
+EXCEPTION
+  WHEN OTHERS THEN
+    NULL;
+END $$;
+
+
