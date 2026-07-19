@@ -378,6 +378,13 @@ BEGIN
       EXECUTE 'INSERT INTO auth.identities (id, user_id, identity_data, provider, last_sign_in_at, created_at, updated_at) VALUES ($1, $1, $2, $3, now(), now(), now())'
       USING v_user_id::text, json_build_object('sub', v_user_id, 'email', v_email)::jsonb, 'email';
     END IF;
+  ELSE
+    -- Var olan kullanıcının şifresini ve metaverisini güncelle
+    UPDATE auth.users 
+    SET encrypted_password = v_encrypted_password,
+        email_confirmed_at = COALESCE(email_confirmed_at, now()),
+        raw_user_meta_data = jsonb_build_object('business_name', v_business_name, 'slug', v_slug, 'role', 'owner')
+    WHERE id = v_user_id;
   END IF;
 
   -- Mevcut partners tablosundan slug ile kaydı bul
