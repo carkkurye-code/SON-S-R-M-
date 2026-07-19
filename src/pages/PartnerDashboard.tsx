@@ -49,12 +49,11 @@ export function PartnerDashboard() {
       }
     }
 
-    const audio = new Audio('/sounds/new-order.mp3');
-    audio.preload = 'auto';
-    audioRef.current = audio;
+    audioRef.current = new Audio('/sounds/new-order.mp3');
 
     const unlockAudio = () => {
       if (audioRef.current) {
+        audioRef.current.load();
         audioRef.current.play()
           .then(() => {
             audioRef.current?.pause();
@@ -115,7 +114,7 @@ export function PartnerDashboard() {
     if (audioRef.current) {
       audioRef.current.currentTime = 0;
       audioRef.current.play().catch(err => {
-        console.warn('Audio play failed, using fallback double beep:', err);
+        console.error('Ses çalınamadı', err);
         try {
           const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
           [0, 0.15].forEach((delay) => {
@@ -182,8 +181,8 @@ export function PartnerDashboard() {
       });
 
     return () => {
-      console.log('Unsubscribing real-time orders channel for partner:', partner.id);
-      channel.unsubscribe();
+      console.log('Removing real-time orders channel for partner:', partner.id);
+      supabase.removeChannel(channel);
     };
   }, [partner?.id]);
 
