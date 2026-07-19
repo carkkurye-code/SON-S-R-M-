@@ -57,6 +57,7 @@ export interface Order {
   total_price: number;
   created_at: string;
   items?: { title: string; quantity: number; price: number }[];
+  archived?: boolean;
 }
 
 export interface Profile {
@@ -785,6 +786,27 @@ export const db = {
       const index = orders.findIndex(o => o.id === orderId);
       if (index === -1) throw new Error('Sipariş bulunamadı.');
       const updated = { ...orders[index], status };
+      orders[index] = updated;
+      setStored(LOCAL_STORAGE_KEYS.ORDERS, orders);
+      return updated;
+    }
+  },
+
+  async updateOrderArchived(orderId: string, archived: boolean): Promise<Order> {
+    if (isSupabaseConfigured && supabase) {
+      const { data, error } = await supabase
+        .from('orders')
+        .update({ archived })
+        .eq('id', orderId)
+        .select()
+        .single();
+      if (error) throw error;
+      return data;
+    } else {
+      const orders = getStored<Order>(LOCAL_STORAGE_KEYS.ORDERS);
+      const index = orders.findIndex(o => o.id === orderId);
+      if (index === -1) throw new Error('Sipariş bulunamadı.');
+      const updated = { ...orders[index], archived: !!archived };
       orders[index] = updated;
       setStored(LOCAL_STORAGE_KEYS.ORDERS, orders);
       return updated;

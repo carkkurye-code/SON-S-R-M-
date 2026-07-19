@@ -6,7 +6,7 @@ import {
   ExternalLink, Loader2, Sparkles, Phone, MapPin, Tag, CircleDollarSign, 
   Layers, Upload, ChevronRight, Eye, User, Truck, Clock, AlertCircle, RefreshCw,
   ArrowLeft, Building, Lock, Mail, Link as LinkIcon, EyeOff, Image as ImageIcon,
-  HelpCircle, CheckCircle, Calendar, Info
+  HelpCircle, CheckCircle, Calendar, Info, Archive, FolderOpen
 } from 'lucide-react';
 
 export interface RealtimeNotification {
@@ -33,6 +33,9 @@ export function PartnerDashboard() {
   // Tabs: dashboard | products | orders | info | hours | logo | gallery
   const [activeTab, setActiveTab] = useState('dashboard');
   const activeTabRef = React.useRef('dashboard');
+
+  // Orders sub-tabs: active | archived | all
+  const [ordersSubTab, setOrdersSubTab] = useState<'active' | 'archived' | 'all'>('active');
 
   useEffect(() => {
     activeTabRef.current = activeTab;
@@ -395,6 +398,15 @@ export function PartnerDashboard() {
       setOrders(prev => prev.map(o => o.id === orderId ? updated : o));
     } catch (err) {
       console.error('Error updating order status:', err);
+    }
+  };
+
+  const handleOrderArchive = async (orderId: string, archived: boolean) => {
+    try {
+      const updated = await db.updateOrderArchived(orderId, archived);
+      setOrders(prev => prev.map(o => o.id === orderId ? { ...o, archived: updated.archived } : o));
+    } catch (err) {
+      console.error('Error updating order archived status:', err);
     }
   };
 
@@ -1145,90 +1157,190 @@ export function PartnerDashboard() {
         {/* 3. ORDERS TAB */}
         {activeTab === 'orders' && (
           <div className="space-y-6">
-            <div>
-              <h2 className="text-xl font-bold text-white">Gelen Siparişler</h2>
-              <p className="text-xs text-muted-foreground mt-0.5">Müşterilerinizin verdiği anlık siparişler ve teslimat takibi.</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div>
+                <h2 className="text-xl font-bold text-white">Gelen Siparişler</h2>
+                <p className="text-xs text-muted-foreground mt-0.5">Müşterilerinizin verdiği anlık siparişler, teslimat takibi ve arşiv yönetimi.</p>
+              </div>
+
+              {/* Sub-tabs header */}
+              <div className="flex border-b border-white/5 pb-px gap-4 sm:gap-6 shrink-0">
+                {[
+                  { id: 'active', label: 'Aktif Siparişler' },
+                  { id: 'archived', label: 'Arşiv' },
+                  { id: 'all', label: 'Tümü' }
+                ].map(subTab => {
+                  const isActive = ordersSubTab === subTab.id;
+                  let count = 0;
+                  if (subTab.id === 'active') {
+                    count = orders.filter(o => !o.archived && ['beklemede', 'hazirlaniyor', 'yolda'].includes(o.status)).length;
+                  } else if (subTab.id === 'archived') {
+                    count = orders.filter(o => o.archived).length;
+                  } else {
+                    count = orders.length;
+                  }
+
+                  return (
+                    <button
+                      key={subTab.id}
+                      onClick={() => setOrdersSubTab(subTab.id as any)}
+                      className={`pb-2 text-xs sm:text-sm font-semibold transition-all relative border-b-2 cursor-pointer ${
+                        isActive 
+                          ? 'text-primary border-primary' 
+                          : 'text-muted-foreground border-transparent hover:text-white'
+                      }`}
+                    >
+                      <div className="flex items-center gap-1.5">
+                        <span>{subTab.label}</span>
+                        <span className={`text-[9px] px-1.5 py-0.5 rounded-full font-mono ${isActive ? 'bg-primary/20 text-primary font-bold' : 'bg-white/5 text-muted-foreground'}`}>
+                          {count}
+                        </span>
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
             </div>
 
-            {orders.length === 0 ? (
-              <div className="text-center py-16 bg-[#111113] border border-white/5 rounded-2xl">
-                <ShoppingBag className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
-                <p className="text-muted-foreground text-sm">Henüz alınmış bir sipariş kaydı bulunmuyor.</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {orders.map(order => (
-                  <div key={order.id} className="bg-[#111113] border border-white/5 rounded-2xl p-4 md:p-5 flex flex-col md:flex-row md:items-center justify-between gap-4">
-                    
-                    {/* Customer & Address Details */}
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="font-bold text-muted-foreground font-mono">#{order.id.substring(0, 8)}</span>
-                        <span className="text-muted-foreground font-mono">{new Date(order.created_at).toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <div>
-                        <h4 className="font-bold text-sm text-foreground">{order.customer_name}</h4>
-                        <p className="text-xs text-muted-foreground font-medium flex items-center gap-1 mt-0.5">
-                          <Phone className="w-3 h-3 text-primary shrink-0" /> {order.customer_phone}
-                        </p>
-                        <p className="text-xs text-muted-foreground flex items-center gap-1 font-medium mt-1">
-                          <MapPin className="w-3 h-3 text-primary shrink-0" /> {order.customer_address}
-                        </p>
-                      </div>
-                    </div>
+            {(() => {
+              const filtered = orders.filter(order => {
+                const isArchived = !!order.archived;
+                if (ordersSubTab === 'active') {
+                  return !isArchived && ['beklemede', 'hazirlaniyor', 'yolda'].includes(order.status);
+                } else if (ordersSubTab === 'archived') {
+                  return isArchived;
+                } else {
+                  return true;
+                }
+              });
 
-                    {/* Order items and notes */}
-                    <div className="bg-white/[0.01] border border-white/5 rounded-xl p-3 max-w-sm w-full md:w-80">
-                      <div className="text-xs font-bold text-muted-foreground uppercase mb-1.5">Sipariş İçeriği</div>
-                      <div className="space-y-1 text-xs">
-                        {order.items && order.items.map((item, idx) => (
-                          <div key={idx} className="flex justify-between font-medium">
-                            <span className="truncate text-muted-foreground">• {item.title}</span>
-                            <span className="font-bold text-foreground">x{item.quantity}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {order.notes && (
-                        <div className="mt-2 text-[10px] text-amber-500 font-medium">
-                          <strong>Not:</strong> "{order.notes}"
-                        </div>
-                      )}
-                    </div>
-
-                    {/* Status & Update Actions */}
-                    <div className="flex items-center justify-between md:justify-end gap-6 md:text-right">
-                      <div>
-                        <div className="text-xs text-muted-foreground">Toplam Tutar</div>
-                        <div className="text-lg font-black text-white font-mono mt-0.5">{order.total_price} ₺</div>
-                      </div>
-
-                      <div className="space-y-1.5 text-right">
-                        <div>
-                          {order.status === 'beklemede' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500">Beklemede</span>}
-                          {order.status === 'hazirlaniyor' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/10 border border-blue-500/20 text-blue-400">Hazırlanıyor</span>}
-                          {order.status === 'yolda' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/10 border border-purple-500/20 text-purple-400">Yolda</span>}
-                          {order.status === 'tamamlandi' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Tamamlandı</span>}
-                          {order.status === 'iptal' && <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-red-500/10 border border-red-500/20 text-red-400">İptal Edildi</span>}
-                        </div>
-
-                        <select
-                          value={order.status}
-                          onChange={(e) => handleOrderStatus(order.id, e.target.value as any)}
-                          className="bg-[#111113] border border-white/5 rounded-lg py-1 px-2 text-xs text-foreground outline-none focus:border-primary/40 cursor-pointer"
-                        >
-                          <option value="beklemede">Beklemede</option>
-                          <option value="hazirlaniyor">Hazırlanıyor</option>
-                          <option value="yolda">Yolda</option>
-                          <option value="tamamlandi">Tamamlandı</option>
-                          <option value="iptal">İptal</option>
-                        </select>
-                      </div>
-                    </div>
-
+              if (filtered.length === 0) {
+                return (
+                  <div className="text-center py-16 bg-[#111113] border border-white/5 rounded-2xl">
+                    <ShoppingBag className="w-12 h-12 text-muted-foreground/30 mx-auto mb-3" />
+                    <p className="text-muted-foreground text-sm">
+                      {ordersSubTab === 'active' && 'Aktif sipariş bulunmuyor.'}
+                      {ordersSubTab === 'archived' && 'Arşivlenmiş sipariş bulunmuyor.'}
+                      {ordersSubTab === 'all' && 'Henüz hiç sipariş bulunmuyor.'}
+                    </p>
                   </div>
-                ))}
-              </div>
-            )}
+                );
+              }
+
+              return (
+                <div className="space-y-3">
+                  {filtered.map(order => (
+                    <div 
+                      key={order.id} 
+                      className={`bg-[#111113] border border-white/5 rounded-xl p-4 flex flex-col lg:flex-row lg:items-center justify-between gap-4 relative transition-all ${
+                        order.archived ? 'grayscale opacity-60 bg-[#141416]/50 border-white/5/50' : ''
+                      }`}
+                    >
+                      {/* Status Badge in Top-Right */}
+                      <div className="absolute top-4 right-4">
+                        {order.status === 'beklemede' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-500/10 border border-amber-500/20 text-amber-500">Beklemede</span>}
+                        {order.status === 'hazirlaniyor' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-blue-500/10 border border-blue-500/20 text-blue-400">Hazırlanıyor</span>}
+                        {order.status === 'yolda' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-purple-500/10 border border-purple-500/20 text-purple-400">Yolda</span>}
+                        {order.status === 'tamamlandi' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/10 border border-emerald-500/20 text-emerald-400">Tamamlandı</span>}
+                        {order.status === 'iptal' && <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-red-500/10 border border-red-500/20 text-red-400">İptal Edildi</span>}
+                      </div>
+
+                      {/* Left: Customer Info (Compact) */}
+                      <div className="space-y-1.5 flex-1 min-w-[200px]">
+                        <div className="flex items-center gap-2 text-[10px]">
+                          <span className="font-bold text-primary font-mono bg-primary/10 px-1.5 py-0.5 rounded">#{order.id.substring(0, 8)}</span>
+                          <span className="text-muted-foreground/80 font-mono">{new Date(order.created_at).toLocaleDateString('tr-TR', { hour: '2-digit', minute: '2-digit' })}</span>
+                        </div>
+                        
+                        <div>
+                          <h4 className="font-bold text-sm text-foreground">{order.customer_name}</h4>
+                          <div className="flex flex-col gap-1 mt-1">
+                            <p className="text-xs text-muted-foreground font-medium flex items-center gap-1">
+                              <Phone className="w-3 h-3 text-muted-foreground/60 shrink-0" /> {order.customer_phone}
+                            </p>
+                            <p className="text-xs text-muted-foreground flex items-start gap-1 font-medium max-w-md">
+                              <MapPin className="w-3 h-3 text-muted-foreground/60 shrink-0 mt-0.5" /> <span>{order.customer_address}</span>
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Middle: Order Items List (Compact) */}
+                      <div className="bg-white/[0.01] border border-white/5 rounded-lg p-2.5 w-full lg:max-w-xs shrink-0">
+                        <div className="text-[10px] font-bold text-muted-foreground/80 uppercase mb-1 flex justify-between items-center">
+                          <span>Sipariş İçeriği</span>
+                          <span className="text-[9px] lowercase text-primary bg-primary/5 px-1 py-0.5 rounded">
+                            {order.payment_type === 'kapida_nakit' && 'Kapıda Nakit'}
+                            {order.payment_type === 'kapida_kart' && 'Kapıda Kart'}
+                            {order.payment_type === 'online' && 'Online Ödeme'}
+                          </span>
+                        </div>
+                        <div className="space-y-1 text-xs max-h-24 overflow-y-auto">
+                          {order.items && order.items.map((item, idx) => (
+                            <div key={idx} className="flex justify-between font-medium">
+                              <span className="truncate text-muted-foreground/90 max-w-[180px]">• {item.title}</span>
+                              <span className="font-bold text-foreground font-mono">x{item.quantity}</span>
+                            </div>
+                          ))}
+                        </div>
+                        {order.notes && (
+                          <div className="mt-1.5 pt-1.5 border-t border-white/5 text-[10px] text-amber-500/90 font-medium leading-relaxed">
+                            <strong>Not:</strong> "{order.notes}"
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Right: Actions, Price & Dropdown (Compact) */}
+                      <div className="flex items-center justify-between lg:justify-end gap-4 lg:w-72 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-white/5">
+                        <div className="lg:text-right">
+                          <div className="text-[10px] text-muted-foreground">Toplam Tutar</div>
+                          <div className="text-base font-black text-white font-mono mt-0.5">{order.total_price} ₺</div>
+                        </div>
+
+                        <div className="flex items-center gap-2">
+                          {/* Status Select */}
+                          <select
+                            value={order.status}
+                            disabled={order.archived}
+                            onChange={(e) => handleOrderStatus(order.id, e.target.value as any)}
+                            className="bg-[#18181b] border border-white/5 rounded-lg py-1.5 px-2 text-xs text-foreground outline-none focus:border-primary/40 cursor-pointer disabled:opacity-50"
+                          >
+                            <option value="beklemede">Beklemede</option>
+                            <option value="hazirlaniyor">Hazırlanıyor</option>
+                            <option value="yolda">Yolda</option>
+                            <option value="tamamlandi">Tamamlandı</option>
+                            <option value="iptal">İptal</option>
+                          </select>
+
+                          {/* Archive / Restore Button */}
+                          {order.archived ? (
+                            <button
+                              onClick={() => handleOrderArchive(order.id, false)}
+                              className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-white/5 hover:bg-white/10 text-white border-0 transition-all cursor-pointer"
+                              title="Arşivden Çıkar"
+                            >
+                              <FolderOpen className="w-3.5 h-3.5" />
+                              <span className="hidden sm:inline">Geri Al</span>
+                            </button>
+                          ) : (
+                            (order.status === 'tamamlandi' || order.status === 'iptal') && (
+                              <button
+                                onClick={() => handleOrderArchive(order.id, true)}
+                                className="flex items-center gap-1.5 py-1.5 px-2.5 rounded-lg text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary border-0 transition-all cursor-pointer"
+                                title="Arşive Gönder"
+                              >
+                                <Archive className="w-3.5 h-3.5" />
+                                <span>Arşivle</span>
+                              </button>
+                            )
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              );
+            })()}
           </div>
         )}
 
