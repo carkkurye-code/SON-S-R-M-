@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, Link } from 'wouter';
-import { db, isSupabaseConfigured, Partner, Product, Order, SupportTicket } from '@/lib/supabase';
+import { db, isSupabaseConfigured, supabase, Partner, Product, Order, SupportTicket } from '@/lib/supabase';
 import { 
   ShoppingBag, Package, Settings, LogOut, Plus, Edit, Trash2, Check, X, 
   ExternalLink, Loader2, Sparkles, Phone, MapPin, Tag, CircleDollarSign, 
@@ -8,6 +8,14 @@ import {
   ArrowLeft, Building, Lock, Mail, Link as LinkIcon, EyeOff, Image as ImageIcon,
   HelpCircle, CheckCircle, Calendar, Info
 } from 'lucide-react';
+
+export interface RealtimeNotification {
+  id: string;
+  customerName: string;
+  totalPrice: number;
+  itemCount: number;
+  createdAt: Date;
+}
 
 export function PartnerDashboard() {
   const [, setLocation] = useLocation();
@@ -17,8 +25,167 @@ export function PartnerDashboard() {
   const [supportTickets, setSupportTickets] = useState<SupportTicket[]>([]);
   const [loading, setLoading] = useState(true);
   
+  // Real-time notifications and badges
+  const [unreadOrdersCount, setUnreadOrdersCount] = useState(0);
+  const [notifications, setNotifications] = useState<RealtimeNotification[]>([]);
+  const audioRef = React.useRef<HTMLAudioElement | null>(null);
+
   // Tabs: dashboard | products | orders | info | hours | logo | gallery
   const [activeTab, setActiveTab] = useState('dashboard');
+  const activeTabRef = React.useRef('dashboard');
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+    if (activeTab === 'orders') {
+      setUnreadOrdersCount(0);
+    }
+  }, [activeTab]);
+
+  // 1. Initial Notification permissions and Audio warm-up
+  useEffect(() => {
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      if (Notification.permission === 'default') {
+        Notification.requestPermission();
+      }
+    }
+
+    const audio = new Audio('/sounds/new-order.mp3');
+    audio.preload = 'auto';
+    audioRef.current = audio;
+
+    const unlockAudio = () => {
+      if (audioRef.current) {
+        audioRef.current.play()
+          .then(() => {
+            audioRef.current?.pause();
+            if (audioRef.current) audioRef.current.currentTime = 0;
+          })
+          .catch(err => {
+            console.log('Audio autoplay unlock failed:', err);
+          });
+      }
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+
+    window.addEventListener('click', unlockAudio);
+    window.addEventListener('keydown', unlockAudio);
+    window.addEventListener('touchstart', unlockAudio);
+
+    return () => {
+      window.removeEventListener('click', unlockAudio);
+      window.removeEventListener('keydown', unlockAudio);
+      window.removeEventListener('touchstart', unlockAudio);
+    };
+  }, []);
+
+  // 2. Helper to trigger new order notifications
+  const triggerNewOrderNotification = (newOrder: Order) => {
+    let count = 0;
+    if (Array.isArray(newOrder.items)) {
+      count = newOrder.items.reduce((acc, item: any) => acc + (item.quantity || 1), 0);
+    } else if (newOrder.items) {
+      try {
+        const itemsArr = typeof newOrder.items === 'string' ? JSON.parse(newOrder.items) : newOrder.items;
+        if (Array.isArray(itemsArr)) {
+          count = itemsArr.reduce((acc, item: any) => acc + (item.quantity || 1), 0);
+        }
+      } catch (e) {
+        count = 1;
+      }
+    } else {
+      count = 1;
+    }
+
+    const newNotif: RealtimeNotification = {
+      id: newOrder.id,
+      customerName: newOrder.customer_name,
+      totalPrice: newOrder.total_price,
+      itemCount: count,
+      createdAt: new Date()
+    };
+
+    setNotifications(prev => [newNotif, ...prev]);
+
+    setTimeout(() => {
+      setNotifications(prev => prev.filter(n => n.id !== newOrder.id));
+    }, 8000);
+
+    if (audioRef.current) {
+      audioRef.current.currentTime = 0;
+      audioRef.current.play().catch(err => {
+        console.warn('Audio play failed, using fallback double beep:', err);
+        try {
+          const audioCtx = new (window.AudioContext || (window as any).webkitAudioContext)();
+          [0, 0.15].forEach((delay) => {
+            const osc = audioCtx.createOscillator();
+            const gain = audioCtx.createGain();
+            osc.connect(gain);
+            gain.connect(audioCtx.destination);
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(delay === 0 ? 587.33 : 659.25, audioCtx.currentTime + delay);
+            gain.gain.setValueAtTime(0.2, audioCtx.currentTime + delay);
+            osc.start(audioCtx.currentTime + delay);
+            gain.gain.exponentialRampToValueAtTime(0.01, audioCtx.currentTime + delay + 0.15);
+            osc.stop(audioCtx.currentTime + delay + 0.15);
+          });
+        } catch (synthErr) {
+          console.error('Synth fallback failed:', synthErr);
+        }
+      });
+    }
+
+    if (Notification.permission === 'granted') {
+      try {
+        new Notification('Yeni sipariş geldi', {
+          body: `${newOrder.customer_name} • ${newOrder.total_price} ₺ • ${count} ürün`,
+          icon: '/android-chrome-192x192.png'
+        });
+      } catch (e) {
+        console.warn('Notification failed:', e);
+      }
+    }
+
+    if (activeTabRef.current !== 'orders') {
+      setUnreadOrdersCount(prev => prev + 1);
+    }
+
+    handleRefresh();
+  };
+
+  // 3. Supabase Realtime Channel
+  useEffect(() => {
+    if (!partner || !isSupabaseConfigured || !supabase) return;
+
+    console.log('Setting up real-time orders channel for partner:', partner.id);
+
+    const channel = supabase
+      .channel(`partner-orders-${partner.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'INSERT',
+          schema: 'public',
+          table: 'orders',
+          filter: `partner_id=eq.${partner.id}`
+        },
+        (payload) => {
+          console.log('New order received via Supabase Realtime:', payload);
+          if (payload.new) {
+            triggerNewOrderNotification(payload.new as Order);
+          }
+        }
+      )
+      .subscribe((status) => {
+        console.log(`Realtime channel status: ${status}`);
+      });
+
+    return () => {
+      console.log('Unsubscribing real-time orders channel for partner:', partner.id);
+      channel.unsubscribe();
+    };
+  }, [partner?.id]);
 
   // New & Edit Product state
   const [showProductModal, setShowProductModal] = useState(false);
@@ -181,6 +348,10 @@ export function PartnerDashboard() {
 
         const ords = await db.getOrders(partnerData.id);
         setOrders(ords);
+        
+        // Initialize unread count based on beklemede orders
+        const pendingCount = ords.filter(o => o.status === 'beklemede').length;
+        setUnreadOrdersCount(pendingCount);
 
         const tkts = await db.getSupportTickets(partnerData.id);
         setSupportTickets(tkts);
@@ -704,7 +875,7 @@ export function PartnerDashboard() {
             {[
               { id: 'dashboard', label: 'Dashboard', icon: Layers },
               { id: 'products', label: 'Ürünler', icon: Package },
-              { id: 'orders', label: 'Siparişler', icon: ShoppingBag, badge: orders.filter(o => o.status === 'beklemede').length },
+              { id: 'orders', label: 'Siparişler', icon: ShoppingBag, badge: unreadOrdersCount },
               { id: 'info', label: 'İşletme Bilgileri', icon: Settings },
               { id: 'hours', label: 'Çalışma Saatleri', icon: Clock },
               { id: 'logo', label: 'Logo', icon: User },
@@ -715,7 +886,12 @@ export function PartnerDashboard() {
               return (
                 <button
                   key={item.id}
-                  onClick={() => setActiveTab(item.id)}
+                  onClick={() => {
+                    setActiveTab(item.id);
+                    if (item.id === 'orders') {
+                      setUnreadOrdersCount(0);
+                    }
+                  }}
                   className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all cursor-pointer border-0 ${
                     isActive 
                       ? 'bg-primary text-primary-foreground font-semibold shadow-lg shadow-primary/15' 
@@ -1419,6 +1595,44 @@ export function PartnerDashboard() {
           </div>
         </div>
       )}
+
+      {/* Real-time Order Notification Toasts */}
+      <div className="fixed top-6 right-6 z-[9999] flex flex-col gap-3 w-full max-w-sm pointer-events-none">
+        {notifications.map((notif) => (
+          <div
+            key={notif.id}
+            className="pointer-events-auto bg-[#111113]/95 border-l-4 border-l-primary border border-white/5 rounded-2xl p-4 shadow-2xl flex gap-3 relative overflow-hidden backdrop-blur-md shadow-primary/10 transition-all hover:scale-[1.02] duration-200"
+            style={{
+              boxShadow: '0 10px 25px -5px rgba(0,0,0,0.5), 0 0 15px rgba(242, 140, 40, 0.15)',
+              borderColor: 'rgba(255, 255, 255, 0.05)'
+            }}
+          >
+            <div className="w-10 h-10 rounded-xl bg-primary/15 border border-primary/20 flex items-center justify-center text-primary shrink-0 animate-pulse">
+              <ShoppingBag className="w-5 h-5" />
+            </div>
+            
+            <div className="flex-1 pr-4">
+              <h4 className="text-sm font-black text-white flex items-center gap-1.5 leading-tight">
+                Yeni Sipariş Geldi!
+                <span className="inline-block w-2 h-2 rounded-full bg-primary animate-ping" />
+              </h4>
+              <p className="text-xs text-muted-foreground mt-1 font-medium">
+                {notif.customerName} • <span className="text-primary font-bold">{notif.totalPrice} ₺</span> • {notif.itemCount} ürün
+              </p>
+              <span className="text-[9px] text-muted-foreground/50 block mt-2 font-mono">
+                {notif.createdAt.toLocaleTimeString('tr-TR')}
+              </span>
+            </div>
+
+            <button
+              onClick={() => setNotifications(prev => prev.filter(n => n.id !== notif.id))}
+              className="absolute top-3 right-3 text-muted-foreground hover:text-white transition-colors cursor-pointer p-1 rounded-lg hover:bg-white/5 border-0 bg-transparent"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
