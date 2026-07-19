@@ -141,6 +141,7 @@ END $$;`;
 
   const copyPartnerSql = (p: Partner) => {
     const pEmail = `${p.slug}@ugra.app`;
+    const pPassword = p.slug === 'arkaplan' ? 'arkaplan123' : `${p.slug}123`;
     const sql = `-- 1. Pgcrypto eklentisini aktifleştirin
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
@@ -154,8 +155,8 @@ DECLARE
   v_business_name TEXT := '${p.business_name.replace(/'/g, "''")}';
   v_slug TEXT := '${p.slug}';
 BEGIN
-  -- 'gokougra123' şifresi için bcrypt hash üret
-  v_encrypted_password := extensions.crypt('gokougra123', extensions.gen_salt('bf', 10));
+  -- '${pPassword}' şifresi için bcrypt hash üret
+  v_encrypted_password := extensions.crypt('${pPassword}', extensions.gen_salt('bf', 10));
 
   -- Eğer zaten bu e-posta ile bir auth kullanıcısı varsa onun ID'sini al
   SELECT id INTO v_user_id FROM auth.users WHERE email = v_email;
