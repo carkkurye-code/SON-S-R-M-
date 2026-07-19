@@ -332,8 +332,11 @@ export const db = {
             .eq('id', partnerId)
             .maybeSingle();
           
+          const active = partner?.active;
           const status = partner?.status || 'pending';
-          if (status !== 'approved') {
+          const isApproved = active === true && (status === 'approved' || status === 'active');
+          
+          if (!isApproved) {
             await supabase.auth.signOut();
             if (status === 'rejected') {
               throw new Error('Başvurunuz reddedilmiştir. Lütfen destek ekibi ile iletişime geçin.');
@@ -373,8 +376,10 @@ export const db = {
       }
 
       if (partner) {
+        const active = partner.active !== false; // default true if not set
         const status = partner.status || 'approved'; // Default approved for seeded ones
-        if (status !== 'approved') {
+        const isApproved = active === true && (status === 'approved' || status === 'active');
+        if (!isApproved) {
           if (status === 'rejected') {
             throw new Error('Başvurunuz reddedilmiştir. Lütfen destek ekibi ile iletişime geçin.');
           } else {
